@@ -2,13 +2,15 @@
 // Imports
 //===============================================================================
 import { Router } from "express";
-import { crearCredito, simularCredito } from "../controllers/credito.controller";
+import { crearCredito, listarCreditos, simularCredito } from "../controllers/credito.controller";
 import validarJWT from "../middlewares/validar-jwt";
 
 const router = Router();
 //===============================================================================
 // Path: api/creditos
 //===============================================================================
+
+router.get('/', validarJWT, listarCreditos);
 
 router.post('/', validarJWT, crearCredito);
 

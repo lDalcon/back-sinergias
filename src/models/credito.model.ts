@@ -1,5 +1,6 @@
 import mssql from 'mssql';
 import dbConnection from "../database";
+import { ICredito } from '../interface/credito.interface';
 import { Amortizacion } from './amortizacion.model';
 import { MacroEconomicos } from './macroeconomicos.model';
 import { Regional } from './regional.model';
@@ -24,7 +25,6 @@ export class Credito {
     tipointeres: ValorCatalogo = new ValorCatalogo();
     amortizacionk: ValorCatalogo = new ValorCatalogo();
     amortizacionint: ValorCatalogo = new ValorCatalogo();
-    modindexado: string = '';
     tasa: number = 0;
     usuariocrea: string = '';
     fechacrea: Date = new Date('1900-01-01');
@@ -51,7 +51,6 @@ export class Credito {
         this.tipointeres = credito?.tipointeres || this.tipointeres;
         this.amortizacionk = credito?.amortizacionk || this.amortizacionk;
         this.amortizacionint = credito?.amortizacionint || this.amortizacionint;
-        this.modindexado = credito?.modindexado || this.modindexado;
         this.tasa = credito?.tasa || this.tasa;
         this.usuariocrea = credito?.usuariocrea || this.usuariocrea;
         this.fechacrea = credito?.fechacrea || this.fechacrea;
@@ -66,8 +65,6 @@ export class Credito {
         try {
             await transaction.begin();
             await new mssql.Request(transaction)
-                .input('ano', mssql.Int(), this.ano)
-                .input('periodo', mssql.Int(), this.periodo)
                 .input('fechadesembolso', mssql.Date(), this.fechadesembolso)
                 .input('moneda', mssql.Int(), this.moneda.id)
                 .input('entfinanciera', mssql.Int(), this.entfinanciera.id)
@@ -83,16 +80,33 @@ export class Credito {
                 .input('tipointeres', mssql.Int(), this.tipointeres.id)
                 .input('amortizacionk', mssql.Int(), this.amortizacionk.id)
                 .input('amortizacionint', mssql.Int(), this.amortizacionint.id)
-                .input('modindexado', mssql.Int(), this.modindexado)
                 .input('usuariocrea', mssql.VarChar(50), this.usuariocrea)
                 .execute('sc_credito_guardar')
             transaction.commit();
+            pool.close();
             return { ok: true, message: 'Credito creado' }
         } catch (error) {
             console.log(error)
             await transaction.rollback();
             return { ok: false, message: error }
         }
+    }
+
+    async listar(): Promise<{ok:boolean, creditos?: ICredito[], message?: string}>{
+        let pool = await dbConnection();
+        return new Promise((resolve, reject) => {
+            pool.request()
+                .execute('sc_credito_listar')
+                .then(result => {
+                    pool.close();
+                    resolve({ ok: true, creditos: result.recordset })
+                })
+                .catch(err => {
+                    console.log(err);
+                    pool.close();
+                    resolve({ ok: false, message: err })
+                })
+        });
     }
 
     async simular() {
@@ -121,43 +135,40 @@ export class Credito {
                 macroeconomico.fecha = fechaPeriodo;
                 tasa = (await macroeconomico.getByDateAndType())?.macroeconomicos?.valor || 0
             }
-            this.amortizacion.push({
-                nper: i,
-                fechaPeriodo: fechaPeriodo,
-                tasaIdxEA: tasa / 100,
-                spreadEA: spreadEA,
-                tasaEA: (1 + tasa / 100) * (1 + spreadEA) - 1,
-                saldoCapital: this.capital,
-                valorInteres: this.calcularInteresPagado(i, (1 + tasa / 100) * (1 + spreadEA) - 1),
-                abonoCapital: 0,
-                pagoTotal: 0,
-                interesCausado: this.calcularInteresCausado((1 + tasa / 100) * (1 + spreadEA) - 1),
-                actualizaIdx: i % this.indexado.config.nper === 0 ? true : false
-            })
+            let amortizacion = new Amortizacion();
+            amortizacion.nper = i;
+            amortizacion.fechaPeriodo = fechaPeriodo;
+            amortizacion.tasaIdxEA = tasa / 100;
+            amortizacion.spreadEA = spreadEA;
+            amortizacion.tasaEA = (1 + tasa / 100) * (1 + spreadEA) - 1;
+            amortizacion.abonoCapital = this.calcularAbonoCapital(i);
+            amortizacion.saldoCapital = this.amortizacion[i - 1].saldoCapital - amortizacion.abonoCapital;
+            amortizacion.valorInteres = this.calcularInteresPagado(i, (1 + tasa / 100) * (1 + spreadEA) - 1);
+            amortizacion.pagoTotal = amortizacion.abonoCapital + amortizacion.valorInteres;
+            amortizacion.interesCausado = this.calcularInteresCausado(i, (1 + tasa / 100) * (1 + spreadEA) - 1);
+            amortizacion.actualizaIdx = i % this.indexado.config.nper === 0 ? true : false;
+            this.amortizacion.push(amortizacion);
         }
     }
-
 
     private calcularInteresPagado(ncuota: number, tasaEA: number): number {
-        let interesPagado: number = 0;
         let tasaEM = Math.pow(1 + tasaEA, 1 / 12) - 1;
-        switch (this.amortizacionint.descripcion) {
-            case 'AL VENCIMIENTO':
-                if (ncuota != this.plazo) interesPagado = 0;
-                else interesPagado = this.saldo * tasaEM * this.plazo;
-                break;
-
-            default:
-                break;
-        }
-        return interesPagado;
+        if (this.amortizacionint.config.nper === -1) return ncuota === this.plazo ? tasaEM * this.amortizacion[ncuota - 1].saldoCapital * this.plazo : 0;
+        if (ncuota % this.amortizacionint.config.nper === 0) return tasaEM * this.amortizacion[ncuota - 1].saldoCapital * this.amortizacionint.config.nper;
+        return 0;
     }
 
-    private calcularInteresCausado(tasaEA: number): number {
+    private calcularInteresCausado(ncuota: number, tasaEA: number): number {
         let tasaEM = Math.pow(1 + tasaEA, 1 / 12) - 1;
-        return this.saldo * tasaEM;
+        return this.amortizacion[ncuota - 1].saldoCapital * tasaEM;
     }
 
+
+    private calcularAbonoCapital(ncuota: number): number {
+        if (this.amortizacionk.config.nper === -1) return ncuota === this.plazo ? this.saldo : 0;
+        if (ncuota % this.amortizacionk.config.nper === 0) return (this.amortizacion[ncuota - 1].saldoCapital / (this.plazo - ncuota + this.amortizacionk.config.nper)) * this.amortizacionk.config.nper
+        return 0;
+    }
 
     private convertirTasaEA(tasa: number, config: any) {
         let tasaPeriodica, tasaVencida: number = 0;
