@@ -25,6 +25,8 @@ export class Credito {
     tipointeres: ValorCatalogo = new ValorCatalogo();
     amortizacionk: ValorCatalogo = new ValorCatalogo();
     amortizacionint: ValorCatalogo = new ValorCatalogo();
+    saldoasignacion: number = 0;
+    estado: string = '';
     tasa: number = 0;
     usuariocrea: string = '';
     fechacrea: Date = new Date('1900-01-01');
@@ -37,20 +39,22 @@ export class Credito {
         this.ano = credito?.ano || this.ano;
         this.periodo = credito?.periodo || this.periodo;
         this.fechadesembolso = credito?.fechadesembolso || this.fechadesembolso;
-        this.moneda = credito?.moneda || this.moneda;
-        this.entfinanciera = credito?.entfinanciera || this.entfinanciera;
-        this.regional = credito?.regional || this.regional;
-        this.lineacredito = credito?.lineacredito || this.lineacredito;
+        this.moneda = new ValorCatalogo(credito?.moneda) || this.moneda;
+        this.entfinanciera = new ValorCatalogo(credito?.entfinanciera) || this.entfinanciera;
+        this.regional = new Regional(credito?.regional) || this.regional;
+        this.lineacredito = new ValorCatalogo(credito?.lineacredito) || this.lineacredito;
         this.pagare = credito?.pagare || this.pagare;
-        this.tipogarantia = credito?.tipogarantia || this.tipogarantia;
+        this.tipogarantia = new ValorCatalogo(credito?.tipogarantia) || this.tipogarantia;
         this.capital = credito?.capital || this.capital;
         this.saldo = credito?.saldo || this.saldo;
         this.plazo = credito?.plazo || this.plazo;
-        this.indexado = credito?.indexado || this.indexado;
+        this.indexado = new ValorCatalogo(credito?.indexado) || this.indexado;
         this.spread = credito?.spread || this.spread;
-        this.tipointeres = credito?.tipointeres || this.tipointeres;
-        this.amortizacionk = credito?.amortizacionk || this.amortizacionk;
-        this.amortizacionint = credito?.amortizacionint || this.amortizacionint;
+        this.tipointeres = new ValorCatalogo(credito?.tipointeres) || this.tipointeres;
+        this.amortizacionk = new ValorCatalogo(credito?.amortizacionk) || this.amortizacionk;
+        this.amortizacionint = new ValorCatalogo(credito?.amortizacionint) || this.amortizacionint;
+        this.saldoasignacion = credito?.saldoasignacion || this.saldoasignacion;
+        this.estado = credito?.estado || this.estado;
         this.tasa = credito?.tasa || this.tasa;
         this.usuariocrea = credito?.usuariocrea || this.usuariocrea;
         this.fechacrea = credito?.fechacrea || this.fechacrea;
@@ -59,11 +63,15 @@ export class Credito {
         this.amortizacion = credito?.amortizacion || this.amortizacion;
     }
 
-    async guardar() {
+    async guardar(transaction?: mssql.Transaction) {
+        let isTrx: boolean = true;
         let pool = await dbConnection();
-        let transaction = new mssql.Transaction(pool);
+        if (!transaction) {
+            transaction = new mssql.Transaction(pool);
+            isTrx = false;
+        }
         try {
-            await transaction.begin();
+            if (!isTrx) await transaction.begin();
             await new mssql.Request(transaction)
                 .input('fechadesembolso', mssql.Date(), this.fechadesembolso)
                 .input('moneda', mssql.Int(), this.moneda.id)
@@ -80,26 +88,32 @@ export class Credito {
                 .input('tipointeres', mssql.Int(), this.tipointeres.id)
                 .input('amortizacionk', mssql.Int(), this.amortizacionk.id)
                 .input('amortizacionint', mssql.Int(), this.amortizacionint.id)
+                .input('saldoasignacion', mssql.Numeric(18, 2), this.saldoasignacion)
                 .input('usuariocrea', mssql.VarChar(50), this.usuariocrea)
                 .execute('sc_credito_guardar')
-            transaction.commit();
-            pool.close();
+            if (!isTrx) {
+                transaction.commit();
+                pool.close();
+            }
             return { ok: true, message: 'Credito creado' }
         } catch (error) {
             console.log(error)
-            await transaction.rollback();
+            if (!isTrx) {
+                await transaction.rollback();
+                pool.close();
+            }
             return { ok: false, message: error }
         }
     }
 
-    async listar(): Promise<{ok:boolean, creditos?: ICredito[], message?: string}>{
+    async listar(): Promise<{ ok: boolean, data?: ICredito[], message?: string }> {
         let pool = await dbConnection();
         return new Promise((resolve, reject) => {
             pool.request()
                 .execute('sc_credito_listar')
                 .then(result => {
                     pool.close();
-                    resolve({ ok: true, creditos: result.recordset })
+                    resolve({ ok: true, data: result.recordset })
                 })
                 .catch(err => {
                     console.log(err);
@@ -108,6 +122,47 @@ export class Credito {
                 })
         });
     }
+
+    async obtener(): Promise<{ ok: boolean, data?: Credito, message?: string }> {
+        let pool = await dbConnection();
+        return new Promise((resolve, reject) => {
+            pool.request()
+                .input('id', mssql.Int(), this.id)
+                .execute('sc_credito_obtener')
+                .then(result => {
+                    pool.close();
+                    resolve({ ok: true, data: new Credito(result.recordset[0][0]) })
+                })
+                .catch(err => {
+                    console.log(err);
+                    pool.close();
+                    resolve({ ok: false, message: err })
+                })
+        });
+    }
+
+    async validarPagare(): Promise<{ ok: boolean, message?: string }> {
+        let pool = await dbConnection();
+        return new Promise((resolve, reject) => {
+            pool.request()
+                .input('pagare', mssql.VarChar(50), this.pagare)
+                .input('entfinanciera', mssql.Int(), this.entfinanciera.id)
+                .execute('sc_credito_obtener')
+                .then(result => {
+                    pool.close();
+                    if(result.recordset[0]?.length > 0) {
+                        let credito: Credito = new Credito(result.recordset[0][0])
+                        resolve({ok: false, message: `El pagaré ${credito.pagare} ya se encuenta asociado a la obligacion #${credito.id}`})
+                    }
+                    resolve({ ok: true, message: 'Pagaré disponible' })
+                })
+                .catch(err => {
+                    console.log(err);
+                    pool.close();
+                    resolve({ ok: false, message: err })
+                })
+        });
+    }  
 
     async simular() {
         let macroeconomico = new MacroEconomicos();
@@ -162,7 +217,6 @@ export class Credito {
         let tasaEM = Math.pow(1 + tasaEA, 1 / 12) - 1;
         return this.amortizacion[ncuota - 1].saldoCapital * tasaEM;
     }
-
 
     private calcularAbonoCapital(ncuota: number): number {
         if (this.amortizacionk.config.nper === -1) return ncuota === this.plazo ? this.saldo : 0;

@@ -1,5 +1,3 @@
-
-
 export class Amortizacion {
     nper: number = -1;
     fechaPeriodo: Date = new Date('1900-01-01');

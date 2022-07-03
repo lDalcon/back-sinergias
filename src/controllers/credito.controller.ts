@@ -20,15 +20,37 @@ export const crearCredito = async (req: Request, res: Response) => {
 export const simularCredito = async (req: Request, res: Response) => {
     let credito: Credito = new Credito(req.body);
     await credito.simular();
-    return res.status(200).json({ok: true, data: credito})
+    return res.status(200).json({ ok: true, data: credito })
 }
 
 export const listarCreditos = async (req: Request, res: Response) => {
     let credito: Credito = new Credito();
-    await credito.listar().then(result => {
-        if(!result.ok) return res.status(400).json(result)
-        return res.status(200).json({ok: true, data: result.creditos})
-    })
-    .catch(err => res.status(500).json({ok:false, message: err}))
+    await credito.listar()
+        .then(result => {
+            if (!result.ok) return res.status(400).json(result)
+            return res.status(200).json(result)
+        })
+        .catch(err => res.status(500).json({ ok: false, message: err }))
+}
+
+export const obtenerCredito = async (req: Request, res: Response) => {
+    let credito: Credito = new Credito(req.params);
+    credito.obtener()
+        .then(result => {
+            if (!result.ok) return res.status(400).json(result);
+            return res.status(200).json(result)
+        })
+        .catch(err => res.status(500).json({ ok: false, message: err }))
+}
+
+export const validarPagare = async (req: Request, res: Response) => {
+    let credito: Credito = new Credito(req.params);
+    credito.entfinanciera.id = +req.params.entfinanciera
+    credito.validarPagare()
+        .then(result => {
+            if (!result.ok) return res.status(400).json(result);
+            return res.status(200).json(result)
+        })
+        .catch(err => res.status(500).json({ ok: false, message: err }))
 }
 
