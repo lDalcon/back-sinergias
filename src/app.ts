@@ -6,6 +6,8 @@ import MacroEconomicosRoute from './routes/macroeconomicos.routes'
 import CatalogoRoute from './routes/catalogo.routes'
 import RegionalRoute from './routes/regional.routes'
 import CreditoRoute from './routes/credito.routes'
+import ForwardRoute from './routes/forward.routes'
+import UsuarioRoute from './routes/usuario.routes'
 
 //=========================================================
 // Init
@@ -34,5 +36,7 @@ app.use('/api/macroeconomicos', MacroEconomicosRoute);
 app.use('/api/catalogo', CatalogoRoute);
 app.use('/api/regional', RegionalRoute);
 app.use('/api/credito', CreditoRoute);
+app.use('/api/forward', ForwardRoute);
+app.use('/api/usuario', UsuarioRoute);
 
 export default app;

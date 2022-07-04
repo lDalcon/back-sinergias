@@ -2,13 +2,16 @@ import mssql from 'mssql';
 import dbConnection from '../database';
 import bcrypt from 'bcrypt'
 import { Menu } from './menu.model';
+import { Regional } from './regional.model';
 
 export class Usuario {
     nick: string = '';
     nombres: string = '';
     apellidos: string = '';
     password: string = '';
+    email: string = '';
     menu: Menu = new Menu();
+    regionales: Regional[] = [];
     estado: boolean = true;
 
     constructor(usuario?: any) {
@@ -16,9 +19,11 @@ export class Usuario {
         this.nombres = usuario?.nombres || this.nombres;
         this.apellidos = usuario?.apellidos || this.apellidos;
         this.password = usuario?.password || this.password;
-        this.estado = usuario?.estado || this.estado;
+        this.email = usuario?.email || this.email;
         if (typeof (usuario?.menu?.opciones) === 'string') usuario.menu.opciones = JSON.parse(usuario.menu.opciones);
         this.menu = usuario?.menu || this.menu;
+        this.regionales = usuario?.regionales || this.regionales;
+        this.estado = usuario?.estado || this.estado;
     }
 
     async guardar(): Promise<{ ok: boolean, message: any }> {
@@ -30,6 +35,7 @@ export class Usuario {
                 .input('nombres', mssql.VarChar(100), this.nombres)
                 .input('apellidos', mssql.VarChar(100), this.apellidos)
                 .input('password', mssql.VarChar(4000), password)
+                .input('email', mssql.VarChar(100), this.email)
                 .input('role', mssql.VarChar(50), this.menu.role)
                 .execute('sc_usuario_crear')
                 .then(() => {
@@ -68,15 +74,14 @@ export class Usuario {
         });
     }
 
-    async getAll(): Promise<{ ok: boolean, data?: Usuario[], message?: any }> {
+    async listar(): Promise<{ ok: boolean, data?: Usuario[], message?: any }> {
         let pool = await dbConnection();
         return new Promise((resolve, reject) => {
             pool.request()
                 .execute('sc_usuario_listar')
                 .then(result => {
                     pool.close();
-                    let usuarios: Usuario[] = result.recordset[0][0];
-                    resolve({ ok: true, data: usuarios });
+                    resolve({ ok: true, data: result.recordset[0] });
                 })
                 .catch(err => {
                     pool.close();
