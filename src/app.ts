@@ -1,5 +1,5 @@
-import express from "express";
-import morgan from "morgan";
+import express, { Request, Response } from 'express';
+import morgan from 'morgan';
 import cors from 'cors';
 import AuthRoute from './routes/auth.routes'
 import MacroEconomicosRoute from './routes/macroeconomicos.routes'
@@ -8,6 +8,7 @@ import RegionalRoute from './routes/regional.routes'
 import CreditoRoute from './routes/credito.routes'
 import ForwardRoute from './routes/forward.routes'
 import UsuarioRoute from './routes/usuario.routes'
+import path from 'path';
 
 //=========================================================
 // Init
@@ -38,5 +39,8 @@ app.use('/api/regional', RegionalRoute);
 app.use('/api/credito', CreditoRoute);
 app.use('/api/forward', ForwardRoute);
 app.use('/api/usuario', UsuarioRoute);
+app.get('*', (req: Request, res: Response) => {
+    res.sendFile( path.resolve( __dirname, 'public/index.html' ) );
+});
 
 export default app;

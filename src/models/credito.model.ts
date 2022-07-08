@@ -150,9 +150,9 @@ export class Credito {
                 .execute('sc_credito_obtener')
                 .then(result => {
                     pool.close();
-                    if(result.recordset[0]?.length > 0) {
+                    if (result.recordset[0]?.length > 0) {
                         let credito: Credito = new Credito(result.recordset[0][0])
-                        resolve({ok: false, message: `El pagaré ${credito.pagare} ya se encuenta asociado a la obligacion #${credito.id}`})
+                        resolve({ ok: false, message: `El pagaré ${credito.pagare} ya se encuenta asociado a la obligacion #${credito.id}` })
                     }
                     resolve({ ok: true, message: 'Pagaré disponible' })
                 })
@@ -162,7 +162,7 @@ export class Credito {
                     resolve({ ok: false, message: err })
                 })
         });
-    }  
+    }
 
     async simular() {
         let macroeconomico = new MacroEconomicos();
@@ -186,10 +186,6 @@ export class Credito {
         })
         for (let i = 1; i <= this.plazo; i++) {
             let fechaPeriodo: Date = new Date(new Date(this.amortizacion[i - 1].fechaPeriodo).setDate(this.amortizacion[i - 1].fechaPeriodo.getDate() + 30))
-            if (i % this.indexado.config.nper === 0) {
-                macroeconomico.fecha = fechaPeriodo;
-                tasa = (await macroeconomico.getByDateAndType())?.macroeconomicos?.valor || 0
-            }
             let amortizacion = new Amortizacion();
             amortizacion.nper = i;
             amortizacion.fechaPeriodo = fechaPeriodo;
@@ -203,6 +199,10 @@ export class Credito {
             amortizacion.interesCausado = this.calcularInteresCausado(i, (1 + tasa / 100) * (1 + spreadEA) - 1);
             amortizacion.actualizaIdx = i % this.indexado.config.nper === 0 ? true : false;
             this.amortizacion.push(amortizacion);
+            if (i % this.amortizacionint.config.nper === 0) {
+                macroeconomico.fecha = fechaPeriodo;
+                tasa = (await macroeconomico.getByDateAndType())?.macroeconomicos?.valor || 0
+            }
         }
     }
 
