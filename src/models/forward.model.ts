@@ -18,6 +18,7 @@ export class Forward {
     tasaforward: number = 0;
     valorcop: number = 0;
     saldoasignacion: number = 0;
+    saldo: number = 0;
     estado: string = ''
     usuariocrea: string = ''
     fechacrea: Date = new Date('1900-01-01');
@@ -38,6 +39,7 @@ export class Forward {
         this.tasaforward = forward?.tasaforward || this.tasaforward;
         this.valorcop = forward?.valorcop || this.valorcop;
         this.saldoasignacion = forward?.saldoasignacion || this.saldoasignacion;
+        this.saldo = forward?.saldo || this.saldo;
         this.estado = forward?.estado || this.estado;
         this.usuariocrea = forward?.usuariocrea || this.usuariocrea;
         this.fechacrea = forward?.fechacrea || this.fechacrea;

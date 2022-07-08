@@ -32,6 +32,7 @@ app.use(express.json());
 //=========================================================
 // Routes
 //=========================================================
+app.use(express.static('public'));
 app.use('/api/auth', AuthRoute);
 app.use('/api/macroeconomicos', MacroEconomicosRoute);
 app.use('/api/catalogo', CatalogoRoute);

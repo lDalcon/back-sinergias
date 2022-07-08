@@ -199,7 +199,7 @@ export class Credito {
             amortizacion.interesCausado = this.calcularInteresCausado(i, (1 + tasa / 100) * (1 + spreadEA) - 1);
             amortizacion.actualizaIdx = i % this.indexado.config.nper === 0 ? true : false;
             this.amortizacion.push(amortizacion);
-            if (i % this.amortizacionint.config.nper === 0) {
+            if (this.amortizacionint.config.nper != -1 && i % this.amortizacionint.config.nper === 0) {
                 macroeconomico.fecha = fechaPeriodo;
                 tasa = (await macroeconomico.getByDateAndType())?.macroeconomicos?.valor || 0
             }
