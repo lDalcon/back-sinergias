@@ -19,6 +19,7 @@ export class Forward {
     valorcop: number = 0;
     saldoasignacion: number = 0;
     saldo: number = 0;
+    creditos: any[] = [];
     estado: string = ''
     usuariocrea: string = ''
     fechacrea: Date = new Date('1900-01-01');
@@ -66,7 +67,6 @@ export class Forward {
                 .input('devaluacion', mssql.Numeric(6, 5), this.devaluacion)
                 .input('tasaforward', mssql.Numeric(18, 2), this.tasaforward)
                 .input('valorcop', mssql.Numeric(18, 2), this.valorcop)
-                .input('saldoasignacion', mssql.Numeric(18, 0), this.saldoasignacion)
                 .input('estado', mssql.VarChar(20), this.estado)
                 .input('usuariocrea', mssql.VarChar(50), this.usuariocrea)
                 .execute('sc_forward_guardar')
@@ -102,4 +102,52 @@ export class Forward {
         });
     }
 
+    async obtener(): Promise<{ ok: boolean, data?: Forward, message?: string }> {
+        let pool = await dbConnection();
+        return new Promise((resolve, reject) => {
+            pool.request()
+                .input('id', mssql.Int(), this.id)
+                .execute('sc_forward_obtener')
+                .then(result => {
+                    pool.close();
+                    console.log(result.recordset)
+                    resolve({ ok: true, data: new Forward(result.recordset[0][0]) })
+                })
+                .catch(err => {
+                    console.log(err);
+                    pool.close();
+                    resolve({ ok: false, message: err })
+                })
+        });
+    }
+
+    async obtenerTrx(transaction: mssql.Transaction): Promise<{ ok: boolean, data?: Forward, message?: string }> {
+        return new Promise((resolve, reject) => {
+            transaction.request()
+                .input('id', mssql.Int(), this.id)
+                .execute('sc_forward_obtener')
+                .then(result => {
+                    console.log(result.recordset)
+                    resolve({ ok: true, data: new Forward(result.recordset[0][0]) })
+                })
+                .catch(err => {
+                    console.log(err);
+                    resolve({ ok: false, message: err })
+                })
+        });
+    }
+
+    async actualizarSaldoAsignacion(valorAsignado: number, transaction: mssql.Transaction) {
+        try {
+            await transaction.request()
+                .input('id', mssql.Int(), this.id)
+                .input('valorasignado', mssql.Numeric(18, 2), valorAsignado)
+                .input('estado', mssql.VarChar(20), this.saldoasignacion === valorAsignado ? 'ASIGNADO' : 'ACTIVO')
+                .execute('sc_forward_actualizarsaldoasginacion')
+        } catch (error) {
+            console.log(error);
+            throw new Error('Error al actualizar el saldo del crédito');
+        }
+    }
+   
 }

@@ -33,6 +33,7 @@ export class Credito {
     usuariomod: string = '';
     fechamod: Date = new Date('1900-01-01');
     amortizacion: Amortizacion[] = [];
+    forwards: any[] = []
 
     constructor(credito?: any) {
         this.id = credito?.id || this.id;
@@ -61,6 +62,7 @@ export class Credito {
         this.usuariomod = credito?.usuariomod || this.usuariomod;
         this.fechamod = credito?.fechamod || this.fechamod;
         this.amortizacion = credito?.amortizacion || this.amortizacion;
+        this.forwards = credito?.forwards || this.forwards
     }
 
     async guardar(transaction?: mssql.Transaction) {
@@ -141,6 +143,21 @@ export class Credito {
         });
     }
 
+    async obtenerTrx(transaction: mssql.Transaction): Promise<{ ok: boolean, data?: Credito, message?: string }> {
+        return new Promise((resolve, reject) => {
+            transaction.request()
+                .input('id', mssql.Int(), this.id)
+                .execute('sc_credito_obtener')
+                .then(result => {
+                    resolve({ ok: true, data: new Credito(result.recordset[0][0]) })
+                })
+                .catch(err => {
+                    console.log(err);
+                    resolve({ ok: false, message: err })
+                })
+        });
+    }
+
     async validarPagare(): Promise<{ ok: boolean, message?: string }> {
         let pool = await dbConnection();
         return new Promise((resolve, reject) => {
@@ -203,6 +220,18 @@ export class Credito {
                 macroeconomico.fecha = fechaPeriodo;
                 tasa = (await macroeconomico.getByDateAndType())?.macroeconomicos?.valor || 0
             }
+        }
+    }
+
+    async actualizarSaldoAsignacion(valorAsignado: number, transaction: mssql.Transaction) {
+        try {
+            await transaction.request()
+                .input('id', mssql.Int(), this.id)
+                .input('valorasignado', mssql.Numeric(18, 2), valorAsignado)
+                .execute('sc_credito_actualizarsaldoasginacion')
+        } catch (error) {
+            console.log(error);
+            throw new Error('Error al actualizar el saldo del crédito');
         }
     }
 
