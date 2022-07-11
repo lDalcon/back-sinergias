@@ -1,5 +1,5 @@
 import mssql from 'mssql';
-import dbConnection from "../database";
+import dbConnection from '../database';
 import { ICredito } from '../interface/credito.interface';
 import { Amortizacion } from './amortizacion.model';
 import { MacroEconomicos } from './macroeconomicos.model';
@@ -229,6 +229,18 @@ export class Credito {
                 .input('id', mssql.Int(), this.id)
                 .input('valorasignado', mssql.Numeric(18, 2), valorAsignado)
                 .execute('sc_credito_actualizarsaldoasginacion')
+        } catch (error) {
+            console.log(error);
+            throw new Error('Error al actualizar el saldo del crédito');
+        }
+    }
+    
+    async actualizarSaldo(idCredito: number, valorPago: number, transaction: mssql.Transaction) {
+        try {
+            await transaction.request()
+                .input('id', mssql.Int(), idCredito)
+                .input('valorPago', mssql.Numeric(18, 2), valorPago)
+                .execute('sc_credito_actualizarsaldo')
         } catch (error) {
             console.log(error);
             throw new Error('Error al actualizar el saldo del crédito');

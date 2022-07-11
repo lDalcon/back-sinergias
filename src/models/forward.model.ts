@@ -142,7 +142,6 @@ export class Forward {
             await transaction.request()
                 .input('id', mssql.Int(), this.id)
                 .input('valorasignado', mssql.Numeric(18, 2), valorAsignado)
-                .input('estado', mssql.VarChar(20), this.saldoasignacion === valorAsignado ? 'ASIGNADO' : 'ACTIVO')
                 .execute('sc_forward_actualizarsaldoasginacion')
         } catch (error) {
             console.log(error);
