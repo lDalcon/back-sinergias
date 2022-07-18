@@ -1,7 +1,9 @@
 import mssql from 'mssql';
 import dbConnection from '../database';
 import { Credito } from './credito.model';
+import { CreditoSaldos } from './credxito-saldos.model';
 import { DetalleForward } from './detalle-forward.model';
+import { Forward } from './forward.model';
 
 export class DetallePago {
     seq: number = 0;
@@ -45,7 +47,7 @@ export class DetallePago {
                 .input('idcredito', mssql.Int(), this.idcredito)
                 .input('tipopago', mssql.VarChar(200), this.tipopago)
                 .input('formapago', mssql.VarChar(200), this.formapago)
-                .input('trm', mssql.Numeric(18, 0), this.trm)
+                .input('trm', mssql.Numeric(18, 2), this.trm)
                 .input('valor', mssql.Numeric(18, 2), this.valor)
                 .input('usuariocrea', mssql.VarChar(50), this.usuariocrea)
                 .output('seq', mssql.Int())
@@ -65,6 +67,7 @@ export class DetallePago {
         let transaction = new mssql.Transaction(pool);
         return new Promise(async (resolve, reject) => {
             try {
+                let fechaPago: Date = new Date(pagos[0].fechapago);
                 await transaction.begin();
                 for (let i = 0; i < pagos.length; i++) {
                     pagos[i].usuariocrea = nick;
@@ -76,8 +79,10 @@ export class DetallePago {
                     if (detallePago.idforward != 0) {
                         let detalleForward: DetalleForward = new DetalleForward(pagos[i])
                         await detalleForward.guardar(transaction);
+                        await new Forward().actualizarSaldo(detallePago.idforward, detallePago.valor, transaction)
                     }
                 }
+                await new CreditoSaldos().actualizarByAnoAndPeriodo(transaction, fechaPago.getFullYear(), fechaPago.getMonth() + 1, pagos[0].idcredito );
                 await transaction.commit();
                 resolve({ ok: true, message: 'Transacciones realizadas' })
             } catch (error) {

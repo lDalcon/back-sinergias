@@ -142,7 +142,19 @@ export class Forward {
             await transaction.request()
                 .input('id', mssql.Int(), this.id)
                 .input('valorasignado', mssql.Numeric(18, 2), valorAsignado)
-                .execute('sc_forward_actualizarsaldoasginacion')
+                .execute('sc_forward_actualizarsaldo')
+        } catch (error) {
+            console.log(error);
+            throw new Error('Error al actualizar el saldo del crédito');
+        }
+    }
+
+    async actualizarSaldo(idForward: number, valorPago: number, transaction: mssql.Transaction) {
+        try {
+            await transaction.request()
+                .input('id', mssql.Int(), idForward)
+                .input('valorpago', mssql.Numeric(18, 2), valorPago)
+                .execute('sc_forward_actualizarsaldo')
         } catch (error) {
             console.log(error);
             throw new Error('Error al actualizar el saldo del crédito');

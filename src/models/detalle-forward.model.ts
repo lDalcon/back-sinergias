@@ -42,7 +42,7 @@ export class DetalleForward {
                 .input('idforward', mssql.Int(), this.idforward)
                 .input('tipopago', mssql.VarChar(200), this.tipopago)
                 .input('formapago', mssql.VarChar(200), this.formapago)
-                .input('trm', mssql.Numeric(18, 0), this.trm)
+                .input('trm', mssql.Numeric(18, 2), this.trm)
                 .input('valor', mssql.Numeric(18, 2), this.valor)
                 .input('usuariocrea', mssql.VarChar(50), this.usuariocrea)
                 .execute('sc_detalleforward_crear')

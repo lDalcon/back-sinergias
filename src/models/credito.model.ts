@@ -2,6 +2,7 @@ import mssql from 'mssql';
 import dbConnection from '../database';
 import { ICredito } from '../interface/credito.interface';
 import { Amortizacion } from './amortizacion.model';
+import { DetallePago } from './detalle-pago.model';
 import { MacroEconomicos } from './macroeconomicos.model';
 import { Regional } from './regional.model';
 import { ValorCatalogo } from './valor-catalogo.model';
@@ -33,7 +34,8 @@ export class Credito {
     usuariomod: string = '';
     fechamod: Date = new Date('1900-01-01');
     amortizacion: Amortizacion[] = [];
-    forwards: any[] = []
+    forwards: any[] = [];
+    pagos: DetallePago[] = [];
 
     constructor(credito?: any) {
         this.id = credito?.id || this.id;
@@ -62,7 +64,8 @@ export class Credito {
         this.usuariomod = credito?.usuariomod || this.usuariomod;
         this.fechamod = credito?.fechamod || this.fechamod;
         this.amortizacion = credito?.amortizacion || this.amortizacion;
-        this.forwards = credito?.forwards || this.forwards
+        this.forwards = credito?.forwards || this.forwards;
+        this.pagos = credito?.pagos || this.pagos;
     }
 
     async guardar(transaction?: mssql.Transaction) {
@@ -108,10 +111,11 @@ export class Credito {
         }
     }
 
-    async listar(): Promise<{ ok: boolean, data?: ICredito[], message?: string }> {
+    async listar(filtro?: any): Promise<{ ok: boolean, data?: ICredito[], message?: string }> {
         let pool = await dbConnection();
         return new Promise((resolve, reject) => {
             pool.request()
+                .input('saldo', mssql.Int(), filtro?.saldo || -1)
                 .execute('sc_credito_listar')
                 .then(result => {
                     pool.close();
