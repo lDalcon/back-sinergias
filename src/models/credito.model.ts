@@ -115,6 +115,7 @@ export class Credito {
         let pool = await dbConnection();
         return new Promise((resolve, reject) => {
             pool.request()
+                .input('nick', mssql.VarChar(50), this.usuariocrea)
                 .input('saldo', mssql.Int(), filtro?.saldo || -1)
                 .execute('sc_credito_listar')
                 .then(result => {

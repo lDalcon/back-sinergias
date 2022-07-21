@@ -2,7 +2,7 @@
 // Imports
 //===============================================================================
 import { Router } from "express";
-import { crearUsuario, listarUsuarios } from "../controllers/usuario.controller";
+import { actualizar, asociarEmpresas, crearUsuario, listarUsuarios } from "../controllers/usuario.controller";
 import validarJWT from "../middlewares/validar-jwt";
 
 const router = Router();
@@ -12,11 +12,11 @@ const router = Router();
 
 router.get('/', validarJWT, listarUsuarios);
 
-// router.get('/:id', validarJWT, obtenerCredito);
-
-// router.get('/:pagare/:entfinanciera', validarJWT, validarPagare);
-
 router.post('/', validarJWT, crearUsuario);
+
+router.put('/', validarJWT, actualizar);
+
+router.put('/asociarEmpresas', validarJWT, asociarEmpresas);
 
 //===============================================================================
 // Exports
