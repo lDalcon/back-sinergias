@@ -26,7 +26,7 @@ export const simularCredito = async (req: Request, res: Response) => {
 export const listarCreditos = async (req: Request, res: Response) => {
     let credito: Credito = new Credito();
     credito.usuariocrea = req['usrtoken']['nick']
-    await credito.listar({saldo: 1})
+    await credito.listar(req.query)
         .then(result => {
             if (!result.ok) return res.status(400).json(result)
             return res.status(200).json(result)

@@ -110,7 +110,6 @@ export class Forward {
                 .execute('sc_forward_obtener')
                 .then(result => {
                     pool.close();
-                    console.log(result.recordset)
                     resolve({ ok: true, data: new Forward(result.recordset[0][0]) })
                 })
                 .catch(err => {
@@ -127,7 +126,6 @@ export class Forward {
                 .input('id', mssql.Int(), this.id)
                 .execute('sc_forward_obtener')
                 .then(result => {
-                    console.log(result.recordset)
                     resolve({ ok: true, data: new Forward(result.recordset[0][0]) })
                 })
                 .catch(err => {
