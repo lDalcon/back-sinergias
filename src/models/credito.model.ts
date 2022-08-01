@@ -117,6 +117,7 @@ export class Credito {
             pool.request()
                 .input('nick', mssql.VarChar(50), this.usuariocrea)
                 .input('saldo', mssql.Int(), filtro?.saldo || -1)
+                .input('saldoasignacion', mssql.Int(), filtro?.saldoasignacion || -1)
                 .input('regional', mssql.Int(), filtro?.regional || null)
                 .execute('sc_credito_listar')
                 .then(result => {

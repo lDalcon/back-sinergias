@@ -20,7 +20,8 @@ export const crearForward = async (req: Request, res: Response) => {
 
 export const listarForward = async (req: Request, res: Response) => {
     let forward: Forward = new Forward();
-    await forward.listar()
+    forward.usuariocrea = req['usrtoken']['nick']
+    await forward.listar(req.query)
         .then(result => {
             if (!result.ok) return res.status(400).json(result)
             return res.status(200).json(result)
