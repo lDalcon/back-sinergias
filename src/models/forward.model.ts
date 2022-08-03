@@ -41,6 +41,7 @@ export class Forward {
         this.valorcop = forward?.valorcop || this.valorcop;
         this.saldoasignacion = forward?.saldoasignacion || this.saldoasignacion;
         this.saldo = forward?.saldo || this.saldo;
+        this.creditos = forward?.creditos || this.creditos;
         this.estado = forward?.estado || this.estado;
         this.usuariocrea = forward?.usuariocrea || this.usuariocrea;
         this.fechacrea = forward?.fechacrea || this.fechacrea;
