@@ -75,11 +75,11 @@ export class DetallePago {
                     let result = await detallePago.guardar(transaction);
                     if (result.seq) pagos[i].seq = result.seq;
                     else throw new Error('Error al obtener el id detalle pago.');
-                    await new Credito().actualizarSaldo(detallePago.idcredito, detallePago.valor, transaction)
+                    if(detallePago.tipopago === 'Capital') await new Credito().actualizarSaldo(detallePago.idcredito, detallePago.valor, transaction)
                     if (detallePago.idforward != 0) {
                         let detalleForward: DetalleForward = new DetalleForward(pagos[i])
                         await detalleForward.guardar(transaction);
-                        await new Forward().actualizarSaldo(detallePago.idforward, detallePago.valor, transaction)
+                        await new Forward().actualizarSaldo(detalleForward, transaction)
                     }
                 }
                 await new CreditoSaldos().actualizarByAnoAndPeriodo(transaction, fechaPago.getFullYear(), fechaPago.getMonth() + 1, pagos[0].idcredito );

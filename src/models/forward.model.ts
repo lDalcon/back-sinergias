@@ -1,6 +1,7 @@
 import mssql from 'mssql';
 import dbConnection from "../database";
 import { IForward } from '../interface/forward.interface';
+import { DetalleForward } from './detalle-forward.model';
 import { Regional } from "./regional.model";
 import { ValorCatalogo } from "./valor-catalogo.model";
 
@@ -145,18 +146,19 @@ export class Forward {
             await transaction.request()
                 .input('id', mssql.Int(), this.id)
                 .input('valorasignado', mssql.Numeric(18, 2), valorAsignado)
-                .execute('sc_forward_actualizarsaldo')
+                .execute('sc_forward_actualizarsaldoasginacion')
         } catch (error) {
             console.log(error);
             throw new Error('Error al actualizar el saldo del crédito');
         }
     }
 
-    async actualizarSaldo(idForward: number, valorPago: number, transaction: mssql.Transaction) {
+    async actualizarSaldo(detalleForward: DetalleForward, transaction: mssql.Transaction) {
         try {
             await transaction.request()
-                .input('id', mssql.Int(), idForward)
-                .input('valorpago', mssql.Numeric(18, 2), valorPago)
+                .input('id', mssql.Int(), detalleForward.idforward)
+                .input('seq', mssql.Int(), detalleForward.seq)
+                .input('valorpago', mssql.Numeric(18, 2), detalleForward.valor)
                 .execute('sc_forward_actualizarsaldo')
         } catch (error) {
             console.log(error);
