@@ -1,5 +1,5 @@
 import mssql from 'mssql';
-import dbConnection from '../database';
+import dbConnection from '../config/database';
 import { Credito } from './credito.model';
 import { CreditoSaldos } from './credxito-saldos.model';
 import { DetalleForward } from './detalle-forward.model';

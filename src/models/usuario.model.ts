@@ -1,5 +1,5 @@
 import mssql from 'mssql';
-import dbConnection from '../database';
+import dbConnection from '../config/database';
 import bcrypt from 'bcrypt'
 import { Menu } from './menu.model';
 import { Regional } from './regional.model';

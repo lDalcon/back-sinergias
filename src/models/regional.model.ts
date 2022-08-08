@@ -1,4 +1,4 @@
-import dbConnection from "../database";
+import dbConnection from "../config/database";
 import mssql from "mssql";
 
 export class Regional {

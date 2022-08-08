@@ -1,5 +1,5 @@
 import mssql from 'mssql';
-import dbConnection from '../database';
+import dbConnection from '../config/database';
 
 export class DetalleForward {
     seq: number = 0;

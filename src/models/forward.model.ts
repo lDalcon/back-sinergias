@@ -1,5 +1,5 @@
 import mssql from 'mssql';
-import dbConnection from "../database";
+import dbConnection from "../config/database";
 import { IForward } from '../interface/forward.interface';
 import { DetalleForward } from './detalle-forward.model';
 import { Regional } from "./regional.model";

@@ -1,5 +1,5 @@
 import mssql from 'mssql';
-import dbConnection from '../database';
+import dbConnection from '../config/database';
 import { ICredito } from '../interface/credito.interface';
 import { Amortizacion } from './amortizacion.model';
 import { DetallePago } from './detalle-pago.model';

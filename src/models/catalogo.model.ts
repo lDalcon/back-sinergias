@@ -1,5 +1,5 @@
 import mssql from 'mssql';
-import dbConnection from "../database";
+import dbConnection from "../config/database";
 import { ValorCatalogo } from "./valor-catalogo.model";
 
 export class Catalogo {
