@@ -36,6 +36,7 @@ export class Credito {
     amortizacion: Amortizacion[] = [];
     forwards: any[] = [];
     pagos: DetallePago[] = [];
+    periodogracia: number = 0;
 
     constructor(credito?: any) {
         this.id = credito?.id || this.id;
@@ -66,6 +67,7 @@ export class Credito {
         this.amortizacion = credito?.amortizacion || this.amortizacion;
         this.forwards = credito?.forwards || this.forwards;
         this.pagos = credito?.pagos || this.pagos;
+        this.periodogracia = credito?.periodogracia || this.periodogracia;
     }
 
     async guardar(transaction?: mssql.Transaction) {
@@ -95,6 +97,8 @@ export class Credito {
                 .input('amortizacionint', mssql.Int(), this.amortizacionint.id)
                 .input('saldoasignacion', mssql.Numeric(18, 2), this.saldoasignacion)
                 .input('usuariocrea', mssql.VarChar(50), this.usuariocrea)
+                .input('tasafija', mssql.Numeric(8,6), this.tasa)
+                .input('periodogracia', mssql.Int(), this.periodogracia)
                 .execute('sc_credito_guardar')
             if (!isTrx) {
                 transaction.commit();
@@ -192,7 +196,9 @@ export class Credito {
         let macroeconomico = new MacroEconomicos();
         macroeconomico.tipo = this.indexado.descripcion;
         macroeconomico.fecha = this.fechadesembolso;
-        let tasa: number = (await macroeconomico.getByDateAndType())?.macroeconomicos?.valor || 0;
+        let tasa: number = 0;
+        if (this.indexado.descripcion == 'TASA FIJA') tasa = this.tasa;
+        else tasa = (await macroeconomico.getByDateAndType())?.macroeconomicos?.valor || 0;
         let spreadEA: number = this.convertirTasaEA(this.spread, this.tipointeres.config);
         this.amortizacion = [];
         this.amortizacion.push({
@@ -225,7 +231,8 @@ export class Credito {
             this.amortizacion.push(amortizacion);
             if (this.amortizacionint.config.nper != -1 && i % this.amortizacionint.config.nper === 0) {
                 macroeconomico.fecha = fechaPeriodo;
-                tasa = (await macroeconomico.getByDateAndType())?.macroeconomicos?.valor || 0
+                if (this.indexado.descripcion == 'TASA FIJA') tasa = this.tasa;
+                else tasa = (await macroeconomico.getByDateAndType())?.macroeconomicos?.valor || 0;
             }
         }
     }
