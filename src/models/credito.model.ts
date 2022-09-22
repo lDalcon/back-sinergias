@@ -2,6 +2,7 @@ import mssql from 'mssql';
 import dbConnection from '../config/database';
 import { ICredito } from '../interface/credito.interface';
 import { Amortizacion } from './amortizacion.model';
+import { AumentoCapital } from './aumento-capital.model';
 import { DetallePago } from './detalle-pago.model';
 import { MacroEconomicos } from './macroeconomicos.model';
 import { Regional } from './regional.model';
@@ -37,6 +38,7 @@ export class Credito {
     forwards: any[] = [];
     pagos: DetallePago[] = [];
     periodogracia: number = 0;
+    aumentocapital: AumentoCapital[] = []
 
     constructor(credito?: any) {
         this.id = credito?.id || this.id;
@@ -68,6 +70,7 @@ export class Credito {
         this.forwards = credito?.forwards || this.forwards;
         this.pagos = credito?.pagos || this.pagos;
         this.periodogracia = credito?.periodogracia || this.periodogracia;
+        this.aumentocapital = credito?.aumentocapital || this.aumentocapital;
     }
 
     async guardar(transaction?: mssql.Transaction) {
