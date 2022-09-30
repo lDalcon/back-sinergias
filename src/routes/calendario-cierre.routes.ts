@@ -2,17 +2,21 @@
 // Imports
 //===============================================================================
 import { Router } from "express";
-import { diferenciaCambio, reporteConsolidado } from "../controllers/reporte.controler";
-import validarJWT from "../middlewares/validar-jwt";
-
+import { obtenerActivos } from "../controllers/calendario-cierre.controller";
+import validarCampos from "../middlewares/validar-campos";
 const router = Router();
 //===============================================================================
-// Path: api/creditos
+// Path: api/calendario
 //===============================================================================
 
-router.get('/', validarJWT, reporteConsolidado);
+router.get(
+    '/:trx',
+    [
+        validarCampos
+    ],
+    obtenerActivos
+);
 
-router.post('/diferenciacambio', validarJWT, diferenciaCambio)
 
 //===============================================================================
 // Exports

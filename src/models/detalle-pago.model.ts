@@ -1,9 +1,10 @@
 import mssql from 'mssql';
 import dbConnection from '../config/database';
 import { Credito } from './credito.model';
-import { CreditoSaldos } from './credxito-saldos.model';
+import { CreditoSaldos } from './credito-saldos.model';
 import { DetalleForward } from './detalle-forward.model';
 import { Forward } from './forward.model';
+import { CalendarioCierre } from './calendario-cierre.model';
 
 export class DetallePago {
     seq: number = 0;
@@ -67,6 +68,9 @@ export class DetallePago {
         let transaction = new mssql.Transaction(pool);
         return new Promise(async (resolve, reject) => {
             try {
+                let calendario: CalendarioCierre = new CalendarioCierre({ano: this.ano, periodo: this.periodo});
+                calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
+                if (!calendario.registro ) throw new Error('El mes se encuentra cerrado para registros.');
                 let fechaPago: Date = new Date(pagos[0].fechapago);
                 await transaction.begin();
                 for (let i = 0; i < pagos.length; i++) {

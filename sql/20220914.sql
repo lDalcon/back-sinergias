@@ -1,4 +1,5 @@
--- USE Sinergias_db
+USE Sinergias_db
+GO
 
 /*
 * Almacenar amortizacion, proceso para actualizacion de amortizaciones.
@@ -25,3 +26,5 @@
 --     FOREIGN KEY (usuariocrea) REFERENCES usuarios(nick)
 -- )
 
+-- update menu set opciones = '[{"label":"Admin","items":[{"label":"Usuarios","icon":"pi pi-fw pi-user","routerLink":["/admin/usuarios"]},{"label":"Catalogos","icon":"pi pi-fw pi-book","routerLink":["/admin/catalogos"]},{"label":"Macroeconómicos","icon":"pi pi-fw pi-chart-line","routerLink":["/admin/macroeconomicos"]}]},{"label":"Dashboard","items":[{"label":"Gerencial","icon":"pi pi-fw pi-chart-pie","routerLink":["/dashboard/gerencia"]},{"label":"Financiero","icon":"pi pi-fw pi-chart-bar","routerLink":["/dashboard/financiero"]}]},{"label":"Financiero","items":[{"label":"Obligaciones","icon":"pi pi-fw pi-credit-card","routerLink":["/financiero/obligaciones"]},{"label":"Forward","icon":"pi pi-fw pi-dollar","routerLink":["/financiero/forward"]},{"label":"Dif. en Cambio","icon":"pi pi-fw pi-wallet","routerLink":["/financiero/diferenciacambio"]}]}]' where role = 'ADMIN'
+-- update menu set opciones = '[{"label":"Dashboard","items":[{"label":"Financiero","icon":"pi pi-fw pi-chart-bar","routerLink":["/dashboard/financiero"]}]},{"label":"Financiero","items":[{"label":"Obligaciones","icon":"pi pi-fw pi-credit-card","routerLink":["/financiero/obligaciones"]},{"label":"Forward","icon":"pi pi-fw pi-dollar","routerLink":["/financiero/forward"]},{"label":"Dif. en Cambio","icon":"pi pi-fw pi-wallet","routerLink":["/financiero/diferenciacambio"]}]}]' where role = 'TESORERIA'

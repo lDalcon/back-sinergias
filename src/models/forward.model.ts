@@ -1,6 +1,7 @@
 import mssql from 'mssql';
 import dbConnection from "../config/database";
 import { IForward } from '../interface/forward.interface';
+import { CalendarioCierre } from './calendario-cierre.model';
 import { DetalleForward } from './detalle-forward.model';
 import { Regional } from "./regional.model";
 import { ValorCatalogo } from "./valor-catalogo.model";
@@ -31,8 +32,8 @@ export class Forward {
         this.id = forward?.id || this.id;
         this.ano = forward?.ano || this.ano;
         this.periodo = forward?.periodo || this.periodo;
-        this.fechaoperacion = forward?.fechaoperacion || this.fechaoperacion;
-        this.fechacumplimiento = forward?.fechacumplimiento || this.fechacumplimiento;
+        this.fechaoperacion = new Date(forward?.fechaoperacion) || this.fechaoperacion;
+        this.fechacumplimiento = new Date(forward?.fechacumplimiento) || this.fechacumplimiento;
         this.entfinanciera = new ValorCatalogo(forward?.entfinanciera) || this.entfinanciera;
         this.regional = new Regional(forward?.regional) || this.regional;
         this.valorusd = forward?.valorusd || this.valorusd;
@@ -59,6 +60,9 @@ export class Forward {
         }
         try {
             if (!isTrx) await transaction.begin();
+            let calendario: CalendarioCierre = new CalendarioCierre({ano: this.fechaoperacion.getFullYear(), periodo: this.fechaoperacion.getMonth() + 1});
+            calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
+            if (!calendario.registro ) throw new Error('El mes se encuentra cerrado para registros.');
             await new mssql.Request(transaction)
                 .input('fechaoperacion', mssql.Date(), this.fechaoperacion)
                 .input('fechacumplimiento', mssql.Date(), this.fechacumplimiento)
@@ -73,8 +77,8 @@ export class Forward {
                 .input('usuariocrea', mssql.VarChar(50), this.usuariocrea)
                 .execute('sc_forward_guardar')
             if (!isTrx) {
-                transaction.commit();
-                pool.close();
+                await transaction.commit();
+                await pool.close();
             }
             return { ok: true, message: 'Forward creado' }
         } catch (error) {
@@ -83,7 +87,7 @@ export class Forward {
                 await transaction.rollback();
                 pool.close();
             }
-            return { ok: false, message: error }
+            return { ok: false, message: error?.['message'] }
         }
     }
 

@@ -3,6 +3,7 @@ import dbConnection from '../config/database';
 import { ICredito } from '../interface/credito.interface';
 import { Amortizacion } from './amortizacion.model';
 import { AumentoCapital } from './aumento-capital.model';
+import { CalendarioCierre } from './calendario-cierre.model';
 import { DetallePago } from './detalle-pago.model';
 import { MacroEconomicos } from './macroeconomicos.model';
 import { Regional } from './regional.model';
@@ -44,7 +45,7 @@ export class Credito {
         this.id = credito?.id || this.id;
         this.ano = credito?.ano || this.ano;
         this.periodo = credito?.periodo || this.periodo;
-        this.fechadesembolso = credito?.fechadesembolso || this.fechadesembolso;
+        this.fechadesembolso = new Date(credito?.fechadesembolso) || this.fechadesembolso;
         this.moneda = new ValorCatalogo(credito?.moneda) || this.moneda;
         this.entfinanciera = new ValorCatalogo(credito?.entfinanciera) || this.entfinanciera;
         this.regional = new Regional(credito?.regional) || this.regional;
@@ -82,6 +83,9 @@ export class Credito {
         }
         try {
             if (!isTrx) await transaction.begin();
+            let calendario: CalendarioCierre = new CalendarioCierre({ano: this.fechadesembolso.getFullYear(), periodo: this.fechadesembolso.getMonth() + 1});
+            calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
+            if (!calendario.registro ) throw new Error('El mes se encuentra cerrado para registros.');
             await new mssql.Request(transaction)
                 .input('fechadesembolso', mssql.Date(), this.fechadesembolso)
                 .input('moneda', mssql.Int(), this.moneda.id)
@@ -102,6 +106,7 @@ export class Credito {
                 .input('usuariocrea', mssql.VarChar(50), this.usuariocrea)
                 .input('tasafija', mssql.Numeric(8,6), this.tasa)
                 .input('periodogracia', mssql.Int(), this.periodogracia)
+                .input('amortizacion', mssql.VarChar(mssql.MAX), JSON.stringify(this.amortizacion))
                 .execute('sc_credito_guardar')
             if (!isTrx) {
                 transaction.commit();
@@ -114,7 +119,7 @@ export class Credito {
                 await transaction.rollback();
                 pool.close();
             }
-            return { ok: false, message: error }
+            return { ok: false, message: error?.['message'] }
         }
     }
 

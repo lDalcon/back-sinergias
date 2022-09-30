@@ -1,5 +1,6 @@
 import mssql from 'mssql';
 import dbConnection from '../config/database';
+import { CalendarioCierre } from './calendario-cierre.model';
 import { Credito } from './credito.model';
 import { Forward } from './forward.model';
 
@@ -39,6 +40,8 @@ export class CreditoForward {
     async guardar(transaction: mssql.Transaction): Promise<{ ok: boolean, message: string }> {
         return new Promise((resolve, reject) => {
             transaction.request()
+                .input('ano', mssql.Int(), this.ano)
+                .input('periodo', mssql.Int(), this.periodo)
                 .input('idcredito', mssql.Int(), this.idcredito)
                 .input('idforward', mssql.Int(), this.idforward)
                 .input('valorasignado', mssql.Numeric(18, 2), this.valorasignado)
@@ -59,8 +62,11 @@ export class CreditoForward {
     async asignarCredito(): Promise<{ ok: boolean, message: any }> {
         let pool = await dbConnection();
         let transaction = new mssql.Transaction(pool);
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async (resolve) => {
             try {
+                let calendario: CalendarioCierre = new CalendarioCierre({ano: this.ano, periodo: this.periodo});
+                calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
+                if (!calendario.registro ) throw new Error('El mes se encuentra cerrado para registros.');
                 await transaction.begin();
                 await this.obtenerDatos(transaction);
                 await this.guardar(transaction);

@@ -10,6 +10,7 @@ import ForwardRoute from './routes/forward.routes'
 import UsuarioRoute from './routes/usuario.routes'
 import DetallePagoRoute from './routes/detalle-pago.routes'
 import ReporteRoute from './routes/reporte.routes'
+import CalendarioRoute from './routes/calendario-cierre.routes'
 import path from 'path';
 
 //=========================================================
@@ -44,6 +45,7 @@ app.use('/api/forward', ForwardRoute);
 app.use('/api/usuario', UsuarioRoute);
 app.use('/api/detallepago', DetallePagoRoute);
 app.use('/api/reporte', ReporteRoute);
+app.use('/api/calendario', CalendarioRoute);
 app.get('*', (req: Request, res: Response) => {
     res.sendFile( path.resolve( __dirname, 'public/index.html' ) );
 });
