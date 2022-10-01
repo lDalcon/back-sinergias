@@ -27,7 +27,7 @@ export class DetallePago {
         this.seq = detallePago?.seq || this.seq;
         this.ano = detallePago?.ano || this.ano;
         this.periodo = detallePago?.periodo || this.periodo;
-        this.fechapago = detallePago?.fechapago || this.fechapago;
+        this.fechapago = new Date(detallePago?.fechapago) || this.fechapago;
         this.idcredito = detallePago?.idcredito || this.idcredito;
         this.idforward = detallePago?.idforward || this.idforward;
         this.tipopago = detallePago?.tipopago || this.tipopago;
@@ -68,11 +68,12 @@ export class DetallePago {
         let transaction = new mssql.Transaction(pool);
         return new Promise(async (resolve, reject) => {
             try {
-                let calendario: CalendarioCierre = new CalendarioCierre({ano: this.ano, periodo: this.periodo});
+                await transaction.begin();
+                let calendario: CalendarioCierre = new CalendarioCierre({ano: this.fechapago.getFullYear(), periodo: this.fechapago.getMonth() + 1});
                 calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
+                console.log(calendario)
                 if (!calendario.registro ) throw new Error('El mes se encuentra cerrado para registros.');
                 let fechaPago: Date = new Date(pagos[0].fechapago);
-                await transaction.begin();
                 for (let i = 0; i < pagos.length; i++) {
                     pagos[i].usuariocrea = nick;
                     let detallePago: DetallePago = new DetallePago(pagos[i]);
@@ -92,7 +93,7 @@ export class DetallePago {
             } catch (error) {
                 console.log(error)
                 await transaction.rollback();
-                resolve({ ok: false, message: error })
+                resolve({ ok: false, message: error?.['message'] })
             }
         })
     }
