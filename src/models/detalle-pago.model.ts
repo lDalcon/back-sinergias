@@ -69,11 +69,10 @@ export class DetallePago {
         return new Promise(async (resolve, reject) => {
             try {
                 await transaction.begin();
-                let calendario: CalendarioCierre = new CalendarioCierre({ano: this.fechapago.getFullYear(), periodo: this.fechapago.getMonth() + 1});
-                calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
-                console.log(calendario)
-                if (!calendario.registro ) throw new Error('El mes se encuentra cerrado para registros.');
                 let fechaPago: Date = new Date(pagos[0].fechapago);
+                let calendario: CalendarioCierre = new CalendarioCierre({ano: fechaPago.getFullYear(), periodo: fechaPago.getMonth() + 1});
+                calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
+                if (!calendario.registro ) throw new Error('El mes se encuentra cerrado para registros.');
                 for (let i = 0; i < pagos.length; i++) {
                     pagos[i].usuariocrea = nick;
                     let detallePago: DetallePago = new DetallePago(pagos[i]);
