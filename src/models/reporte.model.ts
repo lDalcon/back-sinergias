@@ -1,6 +1,7 @@
 import mssql from 'mssql';
 import dbConnection from '../config/database';
 import { CalendarioCierre } from './calendario-cierre.model';
+import moment from 'moment';
 
 export class Reporte {
 

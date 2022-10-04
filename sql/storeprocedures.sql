@@ -1132,10 +1132,10 @@ GO
 
 CREATE PROCEDURE sc_dc_forward
 	@fecha DATE,
-    @nick VARCHAR(50) = NULL,
+	@nick VARCHAR(50) = NULL,
     @nit VARCHAR(15) = NULL
 AS
-    DECLARE @regionales TABLE (regional VARCHAR(150))
+	DECLARE @regionales TABLE (regional VARCHAR(150))
 
     IF @nick IS NULL AND @nit IS NULL
         BEGIN
@@ -1156,6 +1156,15 @@ AS
             ON regional.id = usuario_regional.idregional
             AND usuario_regional.nick = @nick
         END
+    IF @nit IS NOT NULL AND @nick IS NOT NULL
+        BEGIN
+            INSERT INTO @regionales
+            SELECT nombre FROM regional 
+            INNER JOIN usuario_regional 
+            ON regional.id = usuario_regional.idregional
+            AND usuario_regional.nick = @nick
+			WHERE nit = @nit
+        END
     
     DELETE dc_forward
     WHERE
@@ -1164,14 +1173,14 @@ AS
         AND regional in (SELECT regional FROM @regionales)
 
     INSERT INTO dc_forward
-    SELECT
+    SELECT DISTINCT
         YEAR(@fecha) AS [ano],
         MONTH(@fecha) AS [periodo],
         forward_saldos.idforward AS [idforward],
         forward_saldos.idcredito AS [idcredito],
 		regional.nombre AS [regional],
 		entfinanciera.descripcion AS [entfinanciera],
-        lineacreadito.descripcion [lineacreadito],
+        lineacredito.tipo AS [lineacreadito],
 		forward.valorusd AS [valorusd],
 		forward.fechaoperacion AS [fechaoperacion],
 		forward.fechacumplimiento AS [fechacumplimiento],
@@ -1189,7 +1198,7 @@ AS
 		CAST(((ISNULL(trm.valor, forward.tasaspot) - forward.tasaforward)*(forward_saldos.saldoinicial - forward_saldos.pagos)) / forward.dias AS NUMERIC(18,2)) AS [difxdia],
 		DATEDIFF(DAY, forward.fechaoperacion, @fecha ) AS [diascausados],
 		DATEDIFF(DAY, forward.fechaoperacion, @fecha ) * (((ISNULL(trm.valor, forward.tasaspot) - forward.tasaforward)*(forward_saldos.saldoinicial - forward_saldos.pagos)) / forward.dias) AS [difacumulada],
-		CAST(((ISNULL(trm.valor, forward.tasaspot) - forward.tasaforward)*(forward_saldos.saldoinicial - forward_saldos.pagos))-(DATEDIFF(DAY, forward.fechaoperacion, @fecha ) * (((ISNULL(trm.valor, forward.tasaspot) - forward.tasaforward)*(forward_saldos.saldoinicial - forward_saldos.pagos)) / forward.dias)) AS NUMERIC(18,2)) AS [difxcausar]
+		CAST(((ISNULL(trm.valor, forward.tasaspot) - forward.tasaforward)*(forward_saldos.saldoinicial - forward_saldos.pagos)) - (DATEDIFF(DAY, forward.fechaoperacion, @fecha ) * (((ISNULL(trm.valor, forward.tasaspot) - forward.tasaforward)*(forward_saldos.saldoinicial - forward_saldos.pagos)) / forward.dias)) AS NUMERIC(18,2)) AS [difxcausar]
 	FROM
 		forward_saldos
 
@@ -1208,8 +1217,8 @@ AS
 		LEFT JOIN credito
 		ON creditoforward.idcredito = credito.id
 
-        INNER JOIN valorcatalogo AS lineacreadito
-        ON credito.lineacredito = lineacreadito.id
+        INNER JOIN v_lineacredito_tipo AS lineacredito
+        ON credito.lineacredito = lineacredito.id
 
 		LEFT JOIN macroeconomicos AS trm
 		ON trm.ano = credito.ano
@@ -1221,10 +1230,10 @@ AS
 		forward_saldos.ano = YEAR(@fecha)
 		AND forward_saldos.periodo = MONTH(@fecha)
         AND forward_saldos.idcredito <> 0
-        AND regional.nombre in (SELECT regional FROM @regionales)
-    
+		AND regional.nombre in (SELECT regional FROM @regionales)
+
     INSERT INTO dc_forward
-	SELECT
+	SELECT DISTINCT
         YEAR(@fecha) AS [ano],
         MONTH(@fecha) AS [periodo],
 		forward_saldos.idforward AS [idforward],
@@ -1237,7 +1246,7 @@ AS
 		forward.fechacumplimiento AS [fechacumplimiento],
 		forward.dias AS [dias],
 		forward.tasaspot AS [tasaspot],
-		forward.devaluacion AS [devaluacion],
+		forward.devaluacion / 100 AS [devaluacion],
 		forward.tasaforward AS [tasaforward],
 		forward.valorcop AS [valorcop],
 		CAST(forward_saldos.saldoasignacioni - forward_saldos.asignacion AS NUMERIC(18,2)) AS [saldoforward],
@@ -1269,12 +1278,11 @@ AS
 		forward_saldos.ano = YEAR(@fecha)
 		AND forward_saldos.periodo = MONTH(@fecha)
         AND forward_saldos.idcredito = 0
-        AND regional.nombre in (SELECT regional FROM @regionales)
-    
+		AND regional.nombre in (SELECT regional FROM @regionales)
+
     DELETE dc_forward
     WHERE
         saldoforward = 0
-
 GO
 
 IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_dc_credito') 
@@ -1284,7 +1292,7 @@ GO
 CREATE PROCEDURE sc_dc_credito
 	@ano INT,
 	@periodo INT,
-    @nick VARCHAR(50) = NULL,
+	@nick VARCHAR(50) = NULL,
     @nit VARCHAR(15) = NULL
 AS
     DECLARE @regionales TABLE (regional VARCHAR(150))
@@ -1307,6 +1315,15 @@ AS
             INNER JOIN usuario_regional 
             ON regional.id = usuario_regional.idregional
             AND usuario_regional.nick = @nick
+        END
+    IF @nit IS NOT NULL AND @nick IS NOT NULL
+        BEGIN
+            INSERT INTO @regionales
+            SELECT nombre FROM regional 
+            INNER JOIN usuario_regional 
+            ON regional.id = usuario_regional.idregional
+            AND usuario_regional.nick = @nick
+			WHERE nit = @nit
         END
 
     DELETE dc_credito
@@ -1351,12 +1368,14 @@ AS
         credito_saldos.ano = @ano
         AND credito_saldos.periodo = @periodo
         AND moneda = 501
-        AND regional.nombre in (SELECT regional FROM @regionales)        
+		AND regional.nombre in (SELECT regional FROM @regionales)        
+
     
     DELETE dc_credito
     WHERE
         saldo = 0
 GO
+
 
 IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_dc_resumen_credito') 
 	DROP PROCEDURE [dbo].[sc_dc_resumen_credito]
@@ -1365,10 +1384,10 @@ GO
 CREATE PROCEDURE sc_dc_resumen_credito
 	@fecha DATE,
 	@trmcierre NUMERIC(18,2),
-    @nick VARCHAR(50) = NULL,
+	@nick VARCHAR(50) = NULL,
     @nit VARCHAR(15) = NULL
 AS
-    DECLARE @regionales TABLE (regional VARCHAR(150))
+	DECLARE @regionales TABLE (regional VARCHAR(150))
 
     IF @nick IS NULL AND @nit IS NULL
         BEGIN
@@ -1389,7 +1408,15 @@ AS
             ON regional.id = usuario_regional.idregional
             AND usuario_regional.nick = @nick
         END
-
+    IF @nit IS NOT NULL AND @nick IS NOT NULL
+        BEGIN
+            INSERT INTO @regionales
+            SELECT nombre FROM regional 
+            INNER JOIN usuario_regional 
+            ON regional.id = usuario_regional.idregional
+            AND usuario_regional.nick = @nick
+			WHERE nit = @nit
+        END
 	DELETE dc_resumen_credito
 	WHERE
 		ano = YEAR(@fecha)
@@ -1431,7 +1458,8 @@ AS
 	WHERE
 		dc_credito.ano = YEAR(@fecha)
 		AND dc_credito.periodo = MONTH(@fecha)
-        AND dc_credito.regional IN (SELECT regional FROM @regionales)
+		AND dc_credito.regional IN (SELECT regional FROM @regionales)
+
 	
 	UPDATE dc_resumen_credito SET
 		tasafwdprom = CASE saldoforward WHEN 0 THEN 0 ELSE CAST(saldoforwardcop / saldoforward AS NUMERIC(18,2)) END
@@ -1457,26 +1485,33 @@ AS
 		difcambioacum = IIF(diasalcierre > dias, totaldifcambio, CAST(diasalcierre * difcambioxdia AS NUMERIC(18,2)))
 GO
 
+
 IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_dc_consolidado') 
 	DROP PROCEDURE [dbo].[sc_dc_consolidado]
 GO
 
 CREATE PROCEDURE sc_dc_consolidado
 	@fecha DATE,
-    @nick VARCHAR(50) = NULL,
+	@nick VARCHAR(50) = NULL,
     @nit VARCHAR(15) = NULL
 AS
 	DECLARE @trmcierre NUMERIC(18,2)
 	DECLARE @ano INT
 	DECLARE @periodo INT
-    DECLARE @regionales TABLE (regional VARCHAR(150))
+	DECLARE @anoanterior INT
+	DECLARE @periodoanterior INT
+	DECLARE @regionales TABLE (regional VARCHAR(150))
 
-    IF @nick IS NULL AND @nit IS NULL
+	SET @ano = YEAR(@fecha)
+	SET @periodo = MONTH(@fecha)
+    SET @periodoanterior = (CASE @periodo WHEN 1 THEN 12 ELSE @periodo - 1 END)
+    SET @anoanterior = (CASE @periodo WHEN 1 THEN @ano - 1  ELSE @ano END)
+	
+	IF @nick IS NULL AND @nit IS NULL
         BEGIN
             INSERT INTO @regionales
             SELECT nombre FROM regional
         END
-    
     IF @nick IS NULL 
         BEGIN
             INSERT INTO @regionales
@@ -1490,16 +1525,25 @@ AS
             ON regional.id = usuario_regional.idregional
             AND usuario_regional.nick = @nick
         END
-
+    IF @nit IS NOT NULL AND @nick IS NOT NULL
+        BEGIN
+            INSERT INTO @regionales
+            SELECT nombre FROM regional 
+            INNER JOIN usuario_regional 
+            ON regional.id = usuario_regional.idregional
+            AND usuario_regional.nick = @nick
+			WHERE nit = @nit
+        END
+        
 	SELECT 
-        @trmcierre = valor, 
-        @ano = ano, 
-        @periodo = periodo 
-    FROM 
-        macroeconomicos 
-    WHERE 
-        tipo = 'TRM' 
-        AND fecha = @fecha;
+		@trmcierre = valor, 
+		@ano = ano, 
+		@periodo = periodo 
+	FROM 
+		macroeconomicos 
+	WHERE 
+		tipo = 'TRM' 
+		AND fecha = @fecha;
 	
 	EXEC sc_dc_credito @ano, @periodo, @nick, @nit;
 	EXEC sc_dc_forward @fecha, @nick, @nit;
@@ -1515,7 +1559,7 @@ AS
 	WHERE
 		ano = @ano
 		AND periodo = @periodo
-        AND regional IN (SELECT regional FROM @regionales)
+		AND regional IN (SELECT regional FROM @regionales)
 
 	INSERT INTO dc_consolidado
 	SELECT DISTINCT
@@ -1538,9 +1582,46 @@ AS
 		CAST(0 AS numeric(18,2)) AS [difcambiototalacummesactual]
 	FROM
 		#TEMP
-    WHERE
+	WHERE
         regional IN (SELECT regional FROM @regionales)
+	
+	UPDATE A SET
+		difcambiomesanterior = ISNULL(B.difcambiodeudanocubierta, 0),
+		difcambiomesanteriorfw = ISNULL(B.dicambiototalacumfwd, 0)
+	FROM
+		dc_consolidado A
+
+		LEFT JOIN dc_consolidado B
+		ON A.regional = B.regional
+		AND A.lineacredito = B.lineacredito
+		AND B.ano = @anoanterior
+		AND B.periodo = @periodoanterior
+
+	WHERE
+		A.ano = @ano
+		AND A.periodo = @periodo
+
+	UPDATE dc_consolidado SET
+		difcambiomesactual = difcambiodeudanocubierta - difcambiomesanterior,
+		difcambiomesactualfw = dicambiototalacumfwd - difcambiomesanteriorfw
+	WHERE
+		ano = @ano
+		AND periodo = @periodo
+
+	UPDATE dc_consolidado SET
+		difcambiototalacum = difcambiodeudanocubierta + dicambiototalacumfwd,
+		difcambiototalacummesanterior = difcambiomesanterior + difcambiomesanteriorfw
+	WHERE
+		ano = @ano
+		AND periodo = @periodo
+
+	UPDATE dc_consolidado SET
+		difcambiototalacummesactual = difcambiototalacum - difcambiototalacummesanterior
+	WHERE
+		ano = @ano
+		AND periodo = @periodo
 GO
+
 
 IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_calendario_actualizar') 
 	DROP PROCEDURE [dbo].[sc_calendario_actualizar]
@@ -1692,3 +1773,5 @@ GO
 -- SELECT * FROM dc_resumen_credito WHERE periodo = 8
 -- SELECT * FROM dc_consolidado WHERE periodo = 8
 
+
+delete dc_consolidado where ano = 2022 and periodo = 9
