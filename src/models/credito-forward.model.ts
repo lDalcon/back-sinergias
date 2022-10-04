@@ -64,10 +64,10 @@ export class CreditoForward {
         let transaction = new mssql.Transaction(pool);
         return new Promise(async (resolve) => {
             try {
+                await transaction.begin();
                 let calendario: CalendarioCierre = new CalendarioCierre({ano: this.ano, periodo: this.periodo});
                 calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
                 if (!calendario.registro ) throw new Error('El mes se encuentra cerrado para registros.');
-                await transaction.begin();
                 await this.obtenerDatos(transaction);
                 await this.guardar(transaction);
                 await this.credito.actualizarSaldoAsignacion(this.valorasignado, transaction);
