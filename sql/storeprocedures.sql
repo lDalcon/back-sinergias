@@ -1755,6 +1755,112 @@ AS
     FOR JSON PATH
 GO
 
+IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_deuda_consolidado') 
+	DROP PROCEDURE [dbo].[sc_deuda_consolidado]
+GO
+
+CREATE OR ALTER PROCEDURE sc_deuda_consolidado
+	@fecha DATE
+AS
+	DECLARE @ano INT
+	DECLARE @periodo INT
+	DECLARE @trmcierre NUMERIC(18,2)
+
+	SELECT 
+		@trmcierre = valor, 
+		@ano = ano, 
+		@periodo = periodo 
+	FROM 
+		macroeconomicos 
+	WHERE 
+		tipo = 'TRM' 
+		AND fecha = @fecha;
+
+	DELETE deuda_consolidado
+	WHERE
+		ano = @ano
+		AND periodo = @periodo
+
+	INSERT INTO deuda_consolidado
+	SELECT 
+		credito_saldos.ano AS [ano],
+		credito_saldos.periodo AS [periodo],
+		UPPER(calendario_cierre.mes) AS [mes],
+		empresa.razonsocial AS [empresa],
+		v_entfinanciera.descripcion AS [entfinanciera],
+		v_lineacredito_tipo.descripcion AS [lineacredito],
+		moneda.descripcion AS [moneda],
+		SUM (credito_saldos.saldokinicial - credito_saldos.abonoscapital) AS [saldomonedaoriginal],
+		CASE credito.moneda
+			WHEN '500' THEN SUM (credito_saldos.saldokinicial - credito_saldos.abonoscapital)
+			WHEN '501' THEN SUM (credito_saldos.saldokinicial - credito_saldos.abonoscapital) * @trmcierre
+		END AS [saldocop],
+		0 AS [tasapromedio],
+		0 AS [devaluacionpromedio],
+		CASE credito.moneda
+			WHEN '500' THEN 0
+			WHEN '501' THEN @trmcierre
+		END AS [trmcierre]
+	FROM 
+		credito_saldos
+
+		INNER JOIN calendario_cierre
+		ON credito_saldos.ano = calendario_cierre.ano
+		AND credito_saldos.periodo = calendario_cierre.periodo
+
+		INNER JOIN credito
+		ON credito_saldos.id = credito.id
+
+		INNER JOIN regional
+		ON credito.regional = regional.id
+
+		INNER JOIN empresa 
+		ON regional.nit = empresa.nit
+
+		INNER JOIN v_entfinanciera
+		ON credito.entfinanciera = v_entfinanciera.id
+
+		INNER JOIN v_lineacredito_tipo
+		ON credito.lineacredito = v_lineacredito_tipo.id
+
+		INNER JOIN valorcatalogo AS moneda
+		ON credito.moneda = moneda.id
+
+	WHERE
+		credito_saldos.ano = @ano
+		AND credito_saldos.periodo = @periodo
+	GROUP BY
+		credito_saldos.ano,
+		calendario_cierre.mes,
+		empresa.razonsocial,
+		v_entfinanciera.descripcion,
+		v_lineacredito_tipo.descripcion,
+		moneda.descripcion,
+		credito.moneda,
+		credito_saldos.tasapromedio,
+		credito_saldos.periodo
+	ORDER BY
+		credito_saldos.periodo ASC
+GO
+
+
+IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_deuda_consolidado_obtener') 
+	DROP PROCEDURE [dbo].[sc_deuda_consolidado_obtener]
+GO
+
+CREATE PROCEDURE sc_deuda_consolidado_obtener
+    @ano INT,
+    @periodo INT = NULL
+AS
+    SELECT
+        *
+    FROM
+        deuda_consolidado
+    WHERE
+        ano = @ano
+        AND periodo = ISNULL(@periodo, periodo)
+GO
+
 -- UPDATE CALENDARIO_CIERRE SET PROCESO = 0 WHERE ANO = 2022 AND PERIODO = 8
 
 -- SELECT * FROM dc_consolidado
@@ -1774,4 +1880,4 @@ GO
 -- SELECT * FROM dc_consolidado WHERE periodo = 8
 
 
-delete dc_consolidado where ano = 2022 and periodo = 9
+--delete dc_consolidado where ano = 2022 and periodo = 9
