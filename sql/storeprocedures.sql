@@ -1357,7 +1357,7 @@ AS
         empresa.razonsocial AS [razonsocial],
         regional.nombre AS [regional],
         credito.pagare AS [pagare],
-        lineacreadito.descripcion AS [lineacredito],
+        lineacreadito.tipo AS [lineacredito],
         entfinanciera.descripcion AS [entfinanciera],
         credito.capital AS [capital],
         credito.fechadesembolso AS [fechadesembolso],
@@ -1375,7 +1375,7 @@ AS
         INNER JOIN empresa
         ON empresa.nit = regional.nit
 
-        INNER JOIN valorcatalogo AS lineacreadito
+        INNER JOIN v_lineacredito_tipo AS lineacreadito
         ON credito.lineacredito = lineacreadito.id
 
         INNER JOIN valorcatalogo AS entfinanciera
