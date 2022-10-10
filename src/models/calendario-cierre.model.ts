@@ -1,5 +1,7 @@
 import mssql from 'mssql';
 import dbConnection from "../config/database";
+import { CreditoSaldos } from './credito-saldos.model';
+import { ForwardSaldos } from './forward-saldos.model';
 
 export class CalendarioCierre {
     ano: number = 0;
@@ -10,7 +12,7 @@ export class CalendarioCierre {
     proceso: boolean = false;
     registro: boolean = false;
 
-    constructor(calendarioCierre?:any){
+    constructor(calendarioCierre?: any) {
         this.ano = calendarioCierre?.ano || this.ano;
         this.periodo = calendarioCierre?.periodo || this.periodo;
         this.mes = calendarioCierre?.mes || this.mes;
@@ -20,22 +22,18 @@ export class CalendarioCierre {
         this.registro = calendarioCierre?.registro || this.registro;
     }
 
-    async actualizar(): Promise<{ ok: boolean, message?: any }> {
-        let pool = await dbConnection();
-        return new Promise((resolve, reject) => {
-            pool.request()
+    async actualizar(transaction: mssql.Transaction): Promise<{ ok: boolean, message?: any }> {
+        return new Promise((resolve) => {
+            transaction.request()
                 .input('ano', mssql.Int(), this.ano)
                 .input('periodo', mssql.Int(), this.periodo)
                 .input('proceso', mssql.Bit(), this.proceso)
                 .input('registro', mssql.Bit(), this.registro)
                 .execute('sc_calendario_actualizar')
-                .then(result => {
-                    console.log(result)
-                    pool.close();
-                    resolve({ ok: true, message: 'Registro actualizado' })                    
+                .then(() => {
+                    resolve({ ok: true, message: 'Registro actualizado' })
                 })
                 .catch(err => {
-                    pool.close();
                     console.log(err);
                     resolve({ ok: false, message: err })
                 })
@@ -70,15 +68,31 @@ export class CalendarioCierre {
         }
     }
 
-    async obtenerActivos(trx: string) :Promise<{ ok: boolean, data?: CalendarioCierre[], message?: any }>{
+    async getByAno(): Promise<{ ok: boolean, data?: CalendarioCierre[], message?: any }> {
         let pool = await dbConnection();
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
+            pool.request()
+                .input('ano', mssql.Int(), this.ano)
+                .execute('sc_calendariocierre_ano')
+                .then(result => {
+                    resolve({ ok: true, data: result.recordset })
+                })
+                .catch(err => {
+                    console.log(err);
+                    resolve({ ok: false, message: err })
+                })
+        })
+    }
+
+    async obtenerActivos(trx: string): Promise<{ ok: boolean, data?: CalendarioCierre[], message?: any }> {
+        let pool = await dbConnection();
+        return new Promise((resolve) => {
             pool.request()
                 .input('trx', mssql.VarChar(10), trx)
                 .execute('sc_calendario_obtenerActivos')
                 .then(result => {
                     pool.close();
-                    resolve({ ok: true, data: result.recordset[0] })                    
+                    resolve({ ok: true, data: result.recordset[0] })
                 })
                 .catch(err => {
                     pool.close();
@@ -87,4 +101,47 @@ export class CalendarioCierre {
                 })
         });
     }
+
+    async actualizarPeriodo(): Promise<{ ok: boolean, message?: any }> {
+        let pool = await dbConnection();
+        let transaction = new mssql.Transaction(pool);
+        let creditoSaldos: CreditoSaldos = new CreditoSaldos();
+        let forwardSaldos: ForwardSaldos = new ForwardSaldos();
+        return new Promise(async (resolve) => {
+            let result: any;
+            try {
+                await transaction.begin();
+                if (!this.proceso) {
+                    result = await this.actualizarSaldos(transaction);
+                    if (!result.ok) throw new Error(result.message);
+                    result = await creditoSaldos.actualizarByAnoAndPeriodo(transaction, this.ano, this.periodo);
+                    if (!result.ok) throw new Error(result.message);
+                    result = await forwardSaldos.actualizarByAnoAndPeriodo(transaction, this.ano, this.periodo);
+                    if (!result.ok) throw new Error(result.message);
+                }
+                result = await this.actualizar(transaction);
+                if (!result.ok) throw new Error(result.message);
+                await transaction.commit();
+                resolve({ ok: true, message: 'Actualización exitosa!' })
+            } catch (err) {
+                await transaction.rollback()
+                resolve({ ok: false, message: err })
+            }
+        })
+    }
+
+    async actualizarSaldos(transaction: mssql.Transaction): Promise<{ ok: boolean, message?: any }> {
+        return new Promise((resolve) => {
+            transaction.request()
+                .execute('sc_actualizar_saldos')
+                .then(() => {
+                    resolve({ ok: true, message: 'Registros actualizados' })
+                })
+                .catch(err => {
+                    console.log(err)
+                    resolve({ ok: false, message: err })
+                })
+        })
+    }
+
 }

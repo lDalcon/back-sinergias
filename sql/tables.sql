@@ -360,31 +360,51 @@ CREATE TABLE calendario_cierre (
 	PRIMARY KEY (ano, periodo)
 )
 
---INSERT INTO calendario_cierre VALUES
---(2022, 1, 'Enero', '2022-01-01', '2022-01-31', 0,0),
---(2022, 2, 'Febrero', '2022-02-01', '2022-02-28', 0,0),
---(2022, 3, 'Marzo', '2022-03-01', '2022-03-31', 0,0),
---(2022, 4, 'Abril', '2022-04-01', '2022-04-30', 0,0),
---(2022, 5, 'Mayo', '2022-05-01', '2022-05-31', 0,0),
---(2022, 6, 'Junio', '2022-06-01', '2022-06-30', 0,0),
---(2022, 7, 'Julio', '2022-07-01', '2022-07-31', 0,0),
---(2022, 8, 'Agosto', '2022-08-01', '2022-08-31', 1,1),
---(2022, 9, 'Septiembre', '2022-09-01', '2022-09-30', 1,1),
---(2022, 10, 'Octubre', '2022-10-01', '2022-10-31', 0,0),
---(2022, 11, 'Noviembre', '2022-11-01', '2022-11-30', 0,0),
---(2022, 12, 'Diciembre', '2022-12-01', '2022-12-31', 0,0),
---(2023, 1, 'Enero', '2023-01-01', '2023-01-31', 0,0),
---(2023, 2, 'Febrero', '2023-02-01', '2023-02-28', 0,0),
---(2023, 3, 'Marzo', '2023-03-01', '2023-03-31', 0,0),
---(2023, 4, 'Abril', '2023-04-01', '2023-04-30', 0,0),
---(2023, 5, 'Mayo', '2023-05-01', '2023-05-31', 0,0),
---(2023, 6, 'Junio', '2023-06-01', '2023-06-30', 0,0),
---(2023, 7, 'Julio', '2023-07-01', '2023-07-31', 0,0),
---(2023, 8, 'Agosto', '2023-08-01', '2023-08-31', 0,0),
---(2023, 9, 'Septiembre', '2023-09-01', '2023-09-30', 0,0),
---(2023, 10, 'Octubre', '2023-10-01', '2023-10-31', 0,0),
---(2023, 11, 'Noviembre', '2023-11-01', '2023-11-30', 0,0),
---(2023, 12, 'Diciembre', '2023-12-01', '2023-12-31', 0,0)
+IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[cuentasxcobrar]') AND type in (N'U'))
+	DROP TABLE [dbo].[cuentasxcobrar]
+GO
+
+CREATE TABLE cuentasxcobrar (
+    id INT NOT NULL,
+    ano INT NOT NULL,
+    periodo INT NOT NULL,
+    fechadesembolso DATE NOT NULL,
+    moneda INT NOT NULL,
+    entfinanciera INT NOT NULL,
+    regional INT NOT NULL,
+    lineacredito INT NOT NULL,
+    pagare VARCHAR(50) NOT NULL,
+    tipogarantia INT NOT NULL,
+    capital NUMERIC(18,2) NOT NULL,
+    saldo NUMERIC(18,2) NOT NULL,
+    plazo INT NOT NULL,
+    indexado INT NOT NULL,
+    spread NUMERIC(8,6) NOT NULL,
+    tipointeres INT NOT NULL,
+    amortizacionk INT NOT NULL,
+    amortizacionint INT NOT NULL,
+	tasafija NUMERIC(8,6) NOT NULL,
+	observaciones NVARCHAR(MAX),
+	periodogracioa INT NOT NULL,
+    estado VARCHAR(20) DEFAULT 'ACTIVO',
+    usuariocrea VARCHAR(50),
+    fechacrea DATETIME NOT NULL,
+    usuariomod VARCHAR(50),
+    fechamod DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY (moneda) REFERENCES valorcatalogo(id),
+    FOREIGN KEY (entfinanciera) REFERENCES valorcatalogo(id),
+    FOREIGN KEY (regional) REFERENCES regional(id),
+    FOREIGN KEY (lineacredito) REFERENCES valorcatalogo(id),
+    FOREIGN KEY (tipogarantia) REFERENCES valorcatalogo(id),
+    FOREIGN KEY (indexado) REFERENCES valorcatalogo(id),
+    FOREIGN KEY (tipointeres) REFERENCES valorcatalogo(id),
+    FOREIGN KEY (amortizacionk) REFERENCES valorcatalogo(id),
+    FOREIGN KEY (amortizacionint) REFERENCES valorcatalogo(id),
+    FOREIGN KEY (usuariocrea) REFERENCES usuarios(nick),
+    FOREIGN KEY (usuariomod) REFERENCES usuarios(nick),
+    CONSTRAINT U_Pagarecxc UNIQUE (pagare, entfinanciera)
+)
 
 -- IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[credito_saldos]') AND type in (N'U'))
 -- 	DROP TABLE [dbo].[credito_saldos]

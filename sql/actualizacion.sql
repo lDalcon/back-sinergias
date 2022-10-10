@@ -1,6 +1,6 @@
 USE Sinergias_db
 
-EXEC sc_dc_consolidado'2022-07-31'
+-- EXEC sc_dc_consolidado'2022-07-31'
 
 EXEC sc_actualizar_saldos
 EXEC sc_credito_saldos_actualizar '2020', '12'
@@ -25,6 +25,7 @@ EXEC sc_credito_saldos_actualizar '2022', '6'
 EXEC sc_credito_saldos_actualizar '2022', '7'
 EXEC sc_credito_saldos_actualizar '2022', '8'
 EXEC sc_credito_saldos_actualizar '2022', '9'
+EXEC sc_credito_saldos_actualizar '2022', '10'
 
 
 
@@ -37,3 +38,5 @@ EXEC sc_forward_saldos_actualizar '2022', '6'
 EXEC sc_forward_saldos_actualizar '2022', '7'
 EXEC sc_forward_saldos_actualizar '2022', '8'
 EXEC sc_forward_saldos_actualizar '2022', '9'
+EXEC sc_forward_saldos_actualizar '2022', '10'
+

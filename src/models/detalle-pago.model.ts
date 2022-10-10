@@ -5,6 +5,7 @@ import { CreditoSaldos } from './credito-saldos.model';
 import { DetalleForward } from './detalle-forward.model';
 import { Forward } from './forward.model';
 import { CalendarioCierre } from './calendario-cierre.model';
+import { ForwardSaldos } from './forward-saldos.model';
 
 export class DetallePago {
     seq: number = 0;
@@ -66,7 +67,7 @@ export class DetallePago {
     async procesarDetallePago(pagos: DetallePago[], nick: string): Promise<{ ok: boolean, message: any }> {
         let pool = await dbConnection();
         let transaction = new mssql.Transaction(pool);
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async (resolve) => {
             try {
                 await transaction.begin();
                 let fechaPago: Date = new Date(pagos[0].fechapago);
@@ -84,9 +85,14 @@ export class DetallePago {
                         let detalleForward: DetalleForward = new DetalleForward(pagos[i])
                         await detalleForward.guardar(transaction);
                         await new Forward().actualizarSaldo(detalleForward, transaction)
+                        await new ForwardSaldos().actualizarByAnoAndPeriodo(transaction, fechaPago.getFullYear(), fechaPago.getMonth() + 1, pagos[i].idforward);
                     }
                 }
                 await new CreditoSaldos().actualizarByAnoAndPeriodo(transaction, fechaPago.getFullYear(), fechaPago.getMonth() + 1, pagos[0].idcredito );
+                let credito = new Credito();
+                credito.id = pagos[0].idcredito;
+                credito = (await credito.obtener(transaction))?.data || new Credito();
+                if(credito.saldo == 0) await credito.actualizarEstado(transaction, credito.id, 'PAGO');
                 await transaction.commit();
                 resolve({ ok: true, message: 'Transacciones realizadas' })
             } catch (error) {

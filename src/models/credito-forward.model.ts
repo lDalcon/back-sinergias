@@ -2,6 +2,7 @@ import mssql from 'mssql';
 import dbConnection from '../config/database';
 import { CalendarioCierre } from './calendario-cierre.model';
 import { Credito } from './credito.model';
+import { ForwardSaldos } from './forward-saldos.model';
 import { Forward } from './forward.model';
 
 export class CreditoForward {
@@ -38,7 +39,7 @@ export class CreditoForward {
     }
 
     async guardar(transaction: mssql.Transaction): Promise<{ ok: boolean, message: string }> {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             transaction.request()
                 .input('ano', mssql.Int(), this.ano)
                 .input('periodo', mssql.Int(), this.periodo)
@@ -54,7 +55,7 @@ export class CreditoForward {
                 })
                 .catch(err => {
                     console.log(err);
-                    reject({ ok: false, message: err })
+                    resolve({ ok: false, message: err })
                 })
         });
     }
@@ -72,6 +73,7 @@ export class CreditoForward {
                 await this.guardar(transaction);
                 await this.credito.actualizarSaldoAsignacion(this.valorasignado, transaction);
                 await this.forward.actualizarSaldoAsignacion(this.valorasignado, transaction);
+                await new ForwardSaldos().actualizarByAnoAndPeriodo(transaction, this.ano, this.periodo, this.forward.id);
                 await transaction.commit();
                 resolve({ ok: true, message: 'Proceso realizado' })
             } catch (err) {

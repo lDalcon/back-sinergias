@@ -1,5 +1,4 @@
 import mssql from 'mssql';
-import dbConnection from '../config/database';
 
 export class CreditoSaldos {
     id: number = 0;
@@ -25,7 +24,7 @@ export class CreditoSaldos {
     }
 
     async actualizarByAnoAndPeriodo(transaction: mssql.Transaction, ano: number, periodo: number, idCredito?: number): Promise<{ ok: boolean, message?: any }> {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             transaction.request()
                 .input('ano', mssql.Int(), ano)
                 .input('periodo', mssql.Int(), periodo)

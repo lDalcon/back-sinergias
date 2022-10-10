@@ -2,21 +2,35 @@
 // Imports
 //===============================================================================
 import { Router } from "express";
-import { obtenerActivos } from "../controllers/calendario-cierre.controller";
-import validarCampos from "../middlewares/validar-campos";
+import { actualizarPeriodo, getByAno, obtenerActivos } from "../controllers/calendario-cierre.controller";
+import validarJWT from "../middlewares/validar-jwt";
 const router = Router();
 //===============================================================================
 // Path: api/calendario
 //===============================================================================
+router.get(
+    '/',
+    [
+        validarJWT
+    ],
+    getByAno
+)
 
 router.get(
     '/:trx',
     [
-        validarCampos
+        validarJWT
     ],
     obtenerActivos
 );
 
+router.put(
+    '/',
+    [
+        validarJWT
+    ],
+    actualizarPeriodo
+)
 
 //===============================================================================
 // Exports

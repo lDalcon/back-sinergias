@@ -39,7 +39,8 @@ export class Credito {
     forwards: any[] = [];
     pagos: DetallePago[] = [];
     periodogracia: number = 0;
-    aumentocapital: AumentoCapital[] = []
+    aumentocapital: AumentoCapital[] = [];
+    observaciones: string = '';
 
     constructor(credito?: any) {
         this.id = credito?.id || this.id;
@@ -72,6 +73,7 @@ export class Credito {
         this.pagos = credito?.pagos || this.pagos;
         this.periodogracia = credito?.periodogracia || this.periodogracia;
         this.aumentocapital = credito?.aumentocapital || this.aumentocapital;
+        this.observaciones = credito?.observaciones || this.observaciones;
     }
 
     async guardar(transaction?: mssql.Transaction) {
@@ -83,9 +85,9 @@ export class Credito {
         }
         try {
             if (!isTrx) await transaction.begin();
-            let calendario: CalendarioCierre = new CalendarioCierre({ano: this.fechadesembolso.getFullYear(), periodo: this.fechadesembolso.getMonth() + 1});
+            let calendario: CalendarioCierre = new CalendarioCierre({ ano: this.fechadesembolso.getFullYear(), periodo: this.fechadesembolso.getMonth() + 1 });
             calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
-            if (!calendario.registro ) throw new Error('El mes se encuentra cerrado para registros.');
+            if (!calendario.registro) throw new Error('El mes se encuentra cerrado para registros.');
             await new mssql.Request(transaction)
                 .input('fechadesembolso', mssql.Date(), this.fechadesembolso)
                 .input('moneda', mssql.Int(), this.moneda.id)
@@ -103,10 +105,12 @@ export class Credito {
                 .input('amortizacionk', mssql.Int(), this.amortizacionk.id)
                 .input('amortizacionint', mssql.Int(), this.amortizacionint.id)
                 .input('saldoasignacion', mssql.Numeric(18, 2), this.saldoasignacion)
+                .input('estado', mssql.VarChar(20), this.estado)
                 .input('usuariocrea', mssql.VarChar(50), this.usuariocrea)
-                .input('tasafija', mssql.Numeric(8,6), this.tasa)
+                .input('tasafija', mssql.Numeric(8, 6), this.tasa)
                 .input('periodogracia', mssql.Int(), this.periodogracia)
-                .input('amortizacion', mssql.VarChar(mssql.MAX), JSON.stringify(this.amortizacion))
+                .input('amortizacion', mssql.VarChar(mssql.MAX), JSON.stringify({ amortizacion: this.amortizacion }))
+                .input('observaciones', mssql.NVarChar(mssql.MAX), this.observaciones)
                 .execute('sc_credito_guardar')
             if (!isTrx) {
                 transaction.commit();
@@ -128,9 +132,8 @@ export class Credito {
         return new Promise((resolve, reject) => {
             pool.request()
                 .input('nick', mssql.VarChar(50), this.usuariocrea)
-                .input('saldo', mssql.Int(), filtro?.saldo || -1)
-                .input('saldoasignacion', mssql.Int(), filtro?.saldoasignacion || -1)
                 .input('regional', mssql.Int(), filtro?.regional || null)
+                .input('estado', mssql.VarChar(20), filtro?.estado || null)
                 .execute('sc_credito_listar')
                 .then(result => {
                     pool.close();
@@ -144,21 +147,32 @@ export class Credito {
         });
     }
 
-    async obtener(): Promise<{ ok: boolean, data?: Credito, message?: string }> {
-        let pool = await dbConnection();
-        return new Promise((resolve, reject) => {
-            pool.request()
-                .input('id', mssql.Int(), this.id)
-                .execute('sc_credito_obtener')
-                .then(result => {
+    async obtener(transaction?: mssql.Transaction): Promise<{ ok: boolean, data?: Credito, message?: any }> {
+        return new Promise(async (resolve) => {
+            let isTrx: boolean = true;
+            let pool = await dbConnection();
+            if (!transaction) {
+                transaction = new mssql.Transaction(pool);
+                isTrx = false;
+            }
+            try {
+                if (!isTrx) await transaction.begin();
+                let result = await transaction.request()
+                    .input('id', mssql.Int(), this.id)
+                    .execute('sc_credito_obtener')
+                if (!isTrx) {
+                    transaction.commit();
                     pool.close();
-                    resolve({ ok: true, data: new Credito(result.recordset[0][0]) })
-                })
-                .catch(err => {
-                    console.log(err);
+                }
+                resolve({ ok: true, data: new Credito(result.recordset[0][0]) })
+            } catch (error) {
+                console.log(error)
+                if (!isTrx) {
+                    await transaction.rollback();
                     pool.close();
-                    resolve({ ok: false, message: err })
-                })
+                }
+                resolve({ ok: true, message: error })
+            }
         });
     }
 
@@ -256,7 +270,7 @@ export class Credito {
             throw new Error('Error al actualizar el saldo del crédito');
         }
     }
-    
+
     async actualizarSaldo(idCredito: number, valorPago: number, transaction: mssql.Transaction) {
         try {
             await transaction.request()
@@ -267,6 +281,13 @@ export class Credito {
             console.log(error);
             throw new Error('Error al actualizar el saldo del crédito');
         }
+    }
+
+    async actualizarEstado(transaction: mssql.Transaction, id: number, estado: string){
+        await transaction.request()
+            .input('id', mssql.Int(), id)
+            .input('estado', mssql.VarChar(20), estado)
+            .execute('sc_credito_actualizarestado')
     }
 
     private calcularInteresPagado(ncuota: number, tasaEA: number): number {

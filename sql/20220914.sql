@@ -5,7 +5,7 @@ GO
 * Almacenar amortizacion, proceso para actualizacion de amortizaciones.
 */
 ALTER TABLE credito
-ADD amortizacion VARCHAR(MAX) NOT NULL DEFAULT '{[]}'
+ADD amortizacion VARCHAR(MAX) NOT NULL DEFAULT '{"amortizacion":[]}'
 
 IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[aumentocapital]') AND type in (N'U'))
 	DROP TABLE [dbo].[aumentocapital]

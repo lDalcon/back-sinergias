@@ -275,10 +275,12 @@ CREATE PROCEDURE sc_credito_guardar
     @amortizacionk INT,
     @amortizacionint INT,
     @saldoasignacion NUMERIC(18,2),
+    @estado VARCHAR(20),
     @usuariocrea VARCHAR(50),
 	@tasafija NUMERIC(8,6),
 	@periodogracia INT,
-    @amortizacion VARCHAR(MAX)
+    @amortizacion VARCHAR(MAX),
+    @observaciones NVARCHAR(MAX)
 AS
     DECLARE @id INT;
 
@@ -305,14 +307,15 @@ AS
         @amortizacionk,
         @amortizacionint,
         @saldoasignacion,
-        'ACTIVO',
+        @estado,
         @usuariocrea,
         GETDATE(),
         @usuariocrea,
         GETDATE(),
 		@periodogracia,
 		@tasafija,
-        @amortizacion
+        @amortizacion,
+        @observaciones
     )
 GO
 
@@ -322,9 +325,8 @@ GO
 
 CREATE PROCEDURE sc_credito_listar
     @nick VARCHAR(50),
-    @saldo INT = -1,
-    @saldoasignacion INT = -1,
-    @regional INT = NULL
+    @regional INT = NULL,
+    @estado VARCHAR(20) = NULL
 AS
     SELECT
         credito.id AS [id],
@@ -381,9 +383,8 @@ AS
         ON credito.amortizacionint = amortizacionint.id
     
     WHERE
-        saldo >= @saldo
-        AND saldo >= @saldoasignacion
-        AND regional.id in (SELECT idregional FROM usuario_regional WHERE nick = @nick AND idregional = ISNULL(@regional, idregional))
+        regional.id in (SELECT idregional FROM usuario_regional WHERE nick = @nick AND idregional = ISNULL(@regional, idregional))
+        AND credito.estado = ISNULL(@estado, credito.estado)
 GO
 
 IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_credito_obtener') 
@@ -443,6 +444,7 @@ AS
         amortizacionint.descripcion AS [amortizacionint.descripcion],
         amortizacionint.config AS [amortizacionint.config],
         credito.saldoasignacion AS [saldoasignacion],
+        credito.observaciones AS [observaciones],
         credito.estado AS [estado],
         credito.usuariocrea AS [usuariocrea],
         credito.fechacrea AS [fechacrea],
@@ -532,7 +534,7 @@ AS
         AND credito.pagare = ISNULL(@pagare, credito.pagare)
         AND credito.entfinanciera = ISNULL(@entfinanciera, credito.entfinanciera)
         AND moneda.id = ISNULL(@moneda, moneda.id)
-        AND credito.saldoasignacion >= ISNULL(@saldoasignacion, 0)
+        AND credito.saldoasignacion >= ISNULL(@saldoasignacion, credito.saldoasignacion)
     FOR JSON PATH
 GO
 
@@ -924,13 +926,28 @@ AS
 		empresa.cluster AS [cluster],
         regional.nombre AS [regional],
         credito_saldos.id AS [idcredito],
+        CONVERT(VARCHAR(10), credito.fechadesembolso, 103) AS [fechadesembolso],
         moneda.descripcion AS [moneda],
         lineacredito.descripcion AS [lineacredito],
         entfinanciera.descripcion AS [entfinanciera],
 		entfinanciera.tipo AS [tipo],
+        amortizacionint.descripcion AS [amortizacionint],
+        amortizacionk.descripcion AS [amortizacionk],
+        indexado.descripcion AS [indexado],
+        credito.spread AS [spread],
+        (
+            SELECT 
+                valor 
+            FROM 
+                macroeconomicos A
+            WHERE
+                A.tipo = indexado.descripcion
+                AND A.fecha = credito.fechadesembolso
+        ) AS [tasa],
 		CASE moneda WHEN '501' THEN trmdesembolso.valor ELSE 0 END AS [trmdesembolso],
         @trmcierre AS [trmcierre],
         @trmprom AS [trmprom],
+        credito.capital AS [capital],
         credito_saldos.abonoscapital AS [abonoscapital],
         credito_saldos.interespago AS [interespago],
         credito_saldos.saldokinicial AS [saldokinicial],
@@ -1859,6 +1876,34 @@ AS
     WHERE
         ano = @ano
         AND periodo = ISNULL(@periodo, periodo)
+GO
+
+IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_calendariocierre_ano') 
+	DROP PROCEDURE [dbo].[sc_calendariocierre_ano]
+GO
+
+CREATE PROCEDURE sc_calendariocierre_ano
+    @ano INT
+AS
+    SELECT
+        *
+    FROM
+        calendario_cierre
+    WHERE
+        ano = @ano
+GO
+
+IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_credito_actualizarestado') 
+	DROP PROCEDURE [dbo].[sc_credito_actualizarestado]
+GO
+
+CREATE PROCEDURE sc_credito_actualizarestado
+    @id INT,
+    @estado VARCHAR(20)
+AS
+    UPDATE credito
+    SET estado = @estado
+    WHERE id = @id
 GO
 
 -- UPDATE CALENDARIO_CIERRE SET PROCESO = 0 WHERE ANO = 2022 AND PERIODO = 8
