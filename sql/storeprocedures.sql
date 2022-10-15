@@ -1074,6 +1074,37 @@ AS
             ano = @anoanterior
             AND periodo = @periodoanterior
             AND forward_saldos.idforward = ISNULL(@id, forward_saldos.idforward)
+			AND forward_saldos.idcredito = 0
+
+	INSERT INTO @TEMP
+        SELECT
+            forward_saldos.idforward,
+            forward_saldos.idcredito,
+            @ano,
+            @periodo,
+            (
+                SELECT 
+                    ISNULL(SUM(detalleforward.valor),0) 
+                FROM detalleforward 
+                    INNER JOIN detallepago
+                    ON detalleforward.seq = detallepago.seq
+                WHERE 
+                    detalleforward.ano = @ano 
+                    AND detalleforward.periodo = @periodo 
+                    AND detalleforward.idforward = forward_saldos.idforward
+                    AND detallepago.idcredito = forward_saldos.idcredito
+                    AND detallepago.formapago = 'FORWARD'
+            ),
+            0,
+            forward_saldos.saldoinicial - forward_saldos.pagos,
+            forward_saldos.saldoasignacioni - forward_saldos.asignacion
+        FROM
+            forward_saldos
+        WHERE
+            ano = @anoanterior
+            AND periodo = @periodoanterior
+            AND forward_saldos.idforward = ISNULL(@id, forward_saldos.idforward)
+			AND forward_saldos.idcredito <> 0
 
     /* Forwards del mes */
     INSERT INTO @TEMP
