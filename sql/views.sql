@@ -1,3 +1,6 @@
+USE SINERGIAS_DB
+GO
+
 CREATE OR ALTER VIEW v_entfinanciera_tipo
 AS
     SELECT 
@@ -30,4 +33,23 @@ AS
     WHERE 
         ctgid = 'LINCRE'
 GO
+
+CREATE OR ALTER VIEW v_credito_tasa
+AS
+    SELECT 
+        id,
+        YEAR(fechaPeriodo) AS [ano],
+        MONTH(fechaPeriodo) AS [periodo],
+        tasaEA
+    FROM 
+        credito
+        CROSS APPLY OPENJSON(amortizacion,'$.amortizacion')
+        WITH (
+            nper INT '$.nper',
+            tasaEA NUMERIC(6,5) '$.tasaEA',
+            fechaPeriodo DATE '$.fechaPeriodo'
+        )
+GO
+
+
 

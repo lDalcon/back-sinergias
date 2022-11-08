@@ -114,15 +114,69 @@ export class Credito {
                 .execute('sc_credito_guardar')
             if (!isTrx) {
                 transaction.commit();
-                pool.close();
             }
+            pool.close();
             return { ok: true, message: 'Credito creado' }
         } catch (error) {
             console.log(error)
             if (!isTrx) {
                 await transaction.rollback();
-                pool.close();
             }
+            pool.close();
+            return { ok: false, message: error?.['message'] }
+        }
+    }
+
+    async actualizar(transaction?: mssql.Transaction) {
+        let isTrx: boolean = true;
+        let pool = await dbConnection();
+        if (!transaction) {
+            transaction = new mssql.Transaction(pool);
+            isTrx = false;
+        }
+        try {
+            if (!isTrx) await transaction.begin();
+            if(this.estado != 'ANULADO'){
+                let calendario: CalendarioCierre = new CalendarioCierre({ ano: this.fechadesembolso.getFullYear(), periodo: this.fechadesembolso.getMonth() + 1 });
+                calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
+                if (!calendario.registro) throw new Error('El mes se encuentra cerrado para registros.');
+            }
+            await new mssql.Request(transaction)
+                .input('id', mssql.Int(), this.id)
+                .input('fechadesembolso', mssql.Date(), this.fechadesembolso)
+                .input('moneda', mssql.Int(), this.moneda.id)
+                .input('entfinanciera', mssql.Int(), this.entfinanciera.id)
+                .input('regional', mssql.Int(), this.regional.id)
+                .input('lineacredito', mssql.Int(), this.lineacredito.id)
+                .input('pagare', mssql.VarChar(50), this.pagare)
+                .input('tipogarantia', mssql.Int(), this.tipogarantia.id)
+                .input('capital', mssql.Numeric(18, 2), this.capital)
+                .input('saldo', mssql.Numeric(18, 2), this.saldo)
+                .input('plazo', mssql.Int(), this.plazo)
+                .input('indexado', mssql.Int(), this.indexado.id)
+                .input('spread', mssql.Numeric(6, 2), this.spread)
+                .input('tipointeres', mssql.Int(), this.tipointeres.id)
+                .input('amortizacionk', mssql.Int(), this.amortizacionk.id)
+                .input('amortizacionint', mssql.Int(), this.amortizacionint.id)
+                .input('saldoasignacion', mssql.Numeric(18, 2), this.saldoasignacion)
+                .input('estado', mssql.VarChar(20), this.estado)
+                .input('usuariomod', mssql.VarChar(50), this.usuariomod)
+                .input('tasafija', mssql.Numeric(8, 6), this.tasa)
+                .input('periodogracia', mssql.Int(), this.periodogracia)
+                .input('amortizacion', mssql.VarChar(mssql.MAX), JSON.stringify({ amortizacion: this.amortizacion }))
+                .input('observaciones', mssql.NVarChar(mssql.MAX), this.observaciones)
+                .execute('sc_credito_actualizar')
+            if (!isTrx) {
+                transaction.commit();
+            }
+            pool.close();
+            return { ok: true, message: 'Credito actualizado' }
+        } catch (error) {
+            console.log(error)
+            if (!isTrx) {
+                await transaction.rollback();
+            }
+            pool.close();
             return { ok: false, message: error?.['message'] }
         }
     }
@@ -177,7 +231,7 @@ export class Credito {
     }
 
     async obtenerTrx(transaction: mssql.Transaction): Promise<{ ok: boolean, data?: Credito, message?: string }> {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             transaction.request()
                 .input('id', mssql.Int(), this.id)
                 .execute('sc_credito_obtener')
@@ -193,7 +247,7 @@ export class Credito {
 
     async validarPagare(): Promise<{ ok: boolean, message?: string }> {
         let pool = await dbConnection();
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             pool.request()
                 .input('pagare', mssql.VarChar(50), this.pagare)
                 .input('entfinanciera', mssql.Int(), this.entfinanciera.id)
@@ -283,11 +337,24 @@ export class Credito {
         }
     }
 
-    async actualizarEstado(transaction: mssql.Transaction, id: number, estado: string){
+    async actualizarEstado(transaction: mssql.Transaction, id: number, estado: string) {
         await transaction.request()
             .input('id', mssql.Int(), id)
             .input('estado', mssql.VarChar(20), estado)
             .execute('sc_credito_actualizarestado')
+    }
+
+    async actualizarAmortizacion(): Promise<{ ok: boolean, message: any }> {
+        return new Promise(async (resolve) => {
+            let pool = await dbConnection();
+            let transaction = new mssql.Transaction(pool);
+            try {
+                await transaction.begin();
+
+            } catch (error) {
+
+            }
+        })
     }
 
     private calcularInteresPagado(ncuota: number, tasaEA: number): number {

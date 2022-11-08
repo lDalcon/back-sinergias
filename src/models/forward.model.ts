@@ -27,6 +27,8 @@ export class Forward {
     fechacrea: Date = new Date('1900-01-01');
     usuariomod: string = ''
     fechamod: Date = new Date('1900-01-01');
+    observaciones: string = '';
+    dias: number = 0;
 
     constructor(forward?: any) {
         this.id = forward?.id || this.id;
@@ -49,6 +51,8 @@ export class Forward {
         this.fechacrea = forward?.fechacrea || this.fechacrea;
         this.usuariomod = forward?.usuariomod || this.usuariomod;
         this.fechamod = forward?.fechamod || this.fechamod;
+        this.observaciones = forward?.observaciones || this.observaciones;
+        this.dias = forward?.dias || this.dias;
     }
 
     async guardar(transaction?: mssql.Transaction) {
@@ -75,25 +79,68 @@ export class Forward {
                 .input('valorcop', mssql.Numeric(18, 2), this.valorcop)
                 .input('estado', mssql.VarChar(20), this.estado)
                 .input('usuariocrea', mssql.VarChar(50), this.usuariocrea)
+                .input('observaciones', mssql.NVarChar(mssql.MAX), this.observaciones)
                 .execute('sc_forward_guardar')
             if (!isTrx) {
                 await transaction.commit();
-                await pool.close();
             }
+            pool.close();
             return { ok: true, message: 'Forward creado' }
         } catch (error) {
             console.log(error)
             if (!isTrx) {
                 await transaction.rollback();
-                pool.close();
             }
+            pool.close();
+            return { ok: false, message: error?.['message'] }
+        }
+    }
+
+    async actualizar(transaction?: mssql.Transaction) {
+        let isTrx: boolean = true;
+        let pool = await dbConnection();
+        if (!transaction) {
+            transaction = new mssql.Transaction(pool);
+            isTrx = false;
+        }
+        try {
+            if (!isTrx) await transaction.begin();
+            let calendario: CalendarioCierre = new CalendarioCierre({ano: this.fechaoperacion.getFullYear(), periodo: this.fechaoperacion.getMonth() + 1});
+            calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
+            if (!calendario.registro ) throw new Error('El mes se encuentra cerrado para registros.');
+            await new mssql.Request(transaction)
+                .input('id', mssql.Int(), this.id)
+                .input('fechaoperacion', mssql.Date(), this.fechaoperacion)
+                .input('fechacumplimiento', mssql.Date(), this.fechacumplimiento)
+                .input('entfinanciera', mssql.Int(), this.entfinanciera.id)
+                .input('regional', mssql.Int(), this.regional.id)
+                .input('valorusd', mssql.Numeric(18, 2), this.valorusd)
+                .input('tasaspot', mssql.Numeric(18, 2), this.tasaspot)
+                .input('devaluacion', mssql.Numeric(6, 5), this.devaluacion)
+                .input('tasaforward', mssql.Numeric(18, 2), this.tasaforward)
+                .input('valorcop', mssql.Numeric(18, 2), this.valorcop)
+                .input('estado', mssql.VarChar(20), this.estado)
+                .input('usuariomod', mssql.VarChar(50), this.usuariomod)
+                .input('observaciones', mssql.NVarChar(mssql.MAX), this.observaciones)
+                .execute('sc_forward_actualizar')
+            if (!isTrx) {
+                await transaction.commit();
+            }
+            pool.close();
+            return { ok: true, message: 'Forward Actualizado' }
+        } catch (error) {
+            console.log(error)
+            if (!isTrx) {
+                await transaction.rollback();
+            }
+            pool.close();
             return { ok: false, message: error?.['message'] }
         }
     }
 
     async listar(filtro?: any): Promise<{ ok: boolean, data?: IForward[], message?: string }> {
         let pool = await dbConnection();
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             pool.request()
                 .input('nick', mssql.VarChar(50), this.usuariocrea)
                 .input('saldo', mssql.Int(), filtro?.saldo || -1)
@@ -114,7 +161,7 @@ export class Forward {
 
     async obtener(): Promise<{ ok: boolean, data?: Forward, message?: string }> {
         let pool = await dbConnection();
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             pool.request()
                 .input('id', mssql.Int(), this.id)
                 .execute('sc_forward_obtener')

@@ -18,6 +18,15 @@ export const crearForward = async (req: Request, res: Response) => {
     return res.status(200).json(result)
 }
 
+export const actualizarForward = async (req: Request, res: Response) => {
+    let forward: Forward = new Forward(req.body);
+    let usuario: Usuario = req['usrtoken']
+    forward.usuariomod = usuario.nick;
+    let result = await forward.actualizar();
+    if (!result.ok) return res.status(400).json(result);
+    return res.status(200).json(result)
+}
+
 export const listarForward = async (req: Request, res: Response) => {
     let forward: Forward = new Forward();
     forward.usuariocrea = req['usrtoken']['nick']

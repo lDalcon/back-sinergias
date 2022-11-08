@@ -17,6 +17,15 @@ export const crearCredito = async (req: Request, res: Response) => {
     return res.status(200).json(result)
 }
 
+export const actualizar = async (req: Request, res: Response) => {
+    let credito: Credito = new Credito(req.body);
+    let usuario: Usuario = req['usrtoken']
+    credito.usuariomod = usuario.nick;
+    let result = await credito.actualizar();
+    if (!result.ok) return res.status(400).json(result);
+    return res.status(200).json(result)
+}
+
 export const simularCredito = async (req: Request, res: Response) => {
     let credito: Credito = new Credito(req.body);
     await credito.simular();
@@ -53,5 +62,10 @@ export const validarPagare = async (req: Request, res: Response) => {
             return res.status(200).json(result)
         })
         .catch(err => res.status(500).json({ ok: false, message: err }))
+}
+
+export const actualizarAmortizacion = async(req: Request, res: Response) => {
+    let credito: Credito = new Credito();
+    credito.actualizarAmortizacion()
 }
 

@@ -2,8 +2,8 @@ export interface IForward {
     id: number;
     ano: number;
     periodo: number;
-    fechaoperacion: Date;
-    fechacumplimiento: Date;
+    fechaoperacion: string;
+    fechacumplimiento: string;
     entfinanciera: string;
     regional: string;
     valorusd: number;

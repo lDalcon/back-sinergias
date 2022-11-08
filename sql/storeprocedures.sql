@@ -254,71 +254,6 @@ AS
     ORDER BY fecha DESC
 GO
 
-IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_credito_guardar') 
-	DROP PROCEDURE [dbo].[sc_credito_guardar]
-GO
-
-CREATE PROCEDURE sc_credito_guardar
-    @fechadesembolso DATE,
-    @moneda INT,
-    @entfinanciera INT,
-    @regional INT,
-    @lineacredito INT,
-    @pagare VARCHAR(50),
-    @tipogarantia INT,
-    @capital NUMERIC(18,2),
-    @saldo NUMERIC(18,2),
-    @plazo INT,
-    @indexado INT,
-    @spread NUMERIC(6,2),
-    @tipointeres INT,
-    @amortizacionk INT,
-    @amortizacionint INT,
-    @saldoasignacion NUMERIC(18,2),
-    @estado VARCHAR(20),
-    @usuariocrea VARCHAR(50),
-	@tasafija NUMERIC(8,6),
-	@periodogracia INT,
-    @amortizacion VARCHAR(MAX),
-    @observaciones NVARCHAR(MAX)
-AS
-    DECLARE @id INT;
-
-    EXEC sc_obtenerconsecutivo 'OBLIGACION', @id OUTPUT;
-
-    INSERT INTO credito VALUES
-    (
-        @id,
-        YEAR(@fechadesembolso),
-        MONTH(@fechadesembolso),
-        @fechadesembolso,
-        @moneda,
-        @entfinanciera,
-        @regional,
-        @lineacredito,
-        @pagare,
-        @tipogarantia,
-        @capital,
-        @saldo,
-        @plazo,
-        @indexado,
-        @spread,
-        @tipointeres,
-        @amortizacionk,
-        @amortizacionint,
-        @saldoasignacion,
-        @estado,
-        @usuariocrea,
-        GETDATE(),
-        @usuariocrea,
-        GETDATE(),
-		@periodogracia,
-		@tasafija,
-        @amortizacion,
-        @observaciones
-    )
-GO
-
 IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_credito_listar') 
 	DROP PROCEDURE [dbo].[sc_credito_listar]
 GO
@@ -401,6 +336,7 @@ AS
     SELECT
         credito.id AS [id],
         credito.ano AS [ano],
+        credito.periodo AS [periodo],
         credito.fechadesembolso AS [fechadesembolso],
         moneda.id AS [moneda.id],
         moneda.ctgid AS [moneda.ctgid],
@@ -483,7 +419,10 @@ AS
                 detallepago.fechapago AS [fechapago],
                 detallepago.idcredito AS [idcredito],
                 detallepago.tipopago AS [tipopago],
-                detallepago.formapago AS [formapago],
+                CASE WHEN detalleforward.formapago IS NULL
+                    THEN detallepago.formapago
+                    ELSE CONCAT(detalleforward.formapago, ' - ', detalleforward.idforward) END
+                AS [formapago],
                 detallepago.trm AS [trm],
                 detallepago.valor AS [valor],
                 detallepago.estado AS [estado],
@@ -493,8 +432,13 @@ AS
                 detallepago.fechamod AS [fechamod]
             FROM
                 detallepago
+
+                LEFT JOIN detalleforward
+                ON detallepago.seq = detalleforward.seq
+
             WHERE
                 detallepago.idcredito = credito.id
+            ORDER BY detallepago.SEQ ASC
             FOR JSON PATH
         ) AS [pagos],
 		credito.periodogracia AS [periodogracia],
@@ -536,48 +480,6 @@ AS
         AND moneda.id = ISNULL(@moneda, moneda.id)
         AND credito.saldoasignacion >= ISNULL(@saldoasignacion, credito.saldoasignacion)
     FOR JSON PATH
-GO
-
-CREATE OR ALTER PROCEDURE sc_forward_guardar
-    @fechaoperacion DATE,
-    @fechacumplimiento DATE,
-    @entfinanciera INT,
-    @regional INT,
-    @valorusd NUMERIC(18,2),
-    @tasaspot NUMERIC(18,2),
-    @devaluacion NUMERIC(6,5),
-    @tasaforward NUMERIC(18,2),
-    @valorcop NUMERIC(18,2),
-    @estado VARCHAR(20),
-    @usuariocrea VARCHAR(50)
-AS
-    DECLARE @id INT;
-
-    EXEC sc_obtenerconsecutivo 'FORWARD', @id OUTPUT;
-
-    INSERT INTO forward VALUES
-    (
-        @id,
-        YEAR(@fechaoperacion),
-        MONTH(@fechaoperacion),
-        @fechaoperacion,
-        @fechacumplimiento,
-        @entfinanciera,
-        @regional,
-        @valorusd,
-        @tasaspot,
-        @devaluacion,
-        @tasaforward,
-        @valorcop,
-        @valorusd,
-        @valorusd,
-        'ACTIVO',
-        @usuariocrea,
-        GETDATE(),
-        @usuariocrea,
-        GETDATE(),
-		DATEDIFF(DAY, @fechaoperacion, @fechacumplimiento)
-    )
 GO
 
 CREATE OR ALTER PROCEDURE sc_forward_listar
@@ -627,6 +529,7 @@ AS
     SELECT
         forward.id AS [id],
         forward.ano AS [ano],
+        forward.periodo AS [periodo],
         forward.fechaoperacion AS [fechaoperacion],
         forward.fechacumplimiento AS [fechacumplimiento],
         entfinanciera.id AS [entfinanciera.id],
@@ -670,7 +573,8 @@ AS
             WHERE
                 creditoforward.idforward = forward.id
             FOR JSON PATH
-        ) AS creditos            
+        ) AS creditos,
+        forward.dias AS [dias]            
     FROM
         forward
 
@@ -935,16 +839,17 @@ AS
         amortizacionk.descripcion AS [amortizacionk],
         indexado.descripcion AS [indexado],
         credito.spread AS [spread],
-        (
-            SELECT 
+        ISNULL((
+            SELECT TOP 1
                 valor 
             FROM 
                 macroeconomicos A
             WHERE
                 A.tipo = indexado.descripcion
-                AND A.fecha = credito.fechadesembolso
-        ) AS [tasa],
-		CASE moneda WHEN '501' THEN trmdesembolso.valor ELSE 0 END AS [trmdesembolso],
+                AND A.fecha <= credito.fechadesembolso
+			ORDER BY A.fecha ASC
+        ), tasafija) AS [tasa],
+		trmdesembolso.valor AS [trmdesembolso],
         @trmcierre AS [trmcierre],
         @trmprom AS [trmprom],
         credito.capital AS [capital],
@@ -1261,6 +1166,8 @@ AS
 
 		LEFT JOIN creditoforward
 		ON forward_saldos.idforward = creditoforward.idforward
+        AND forward_saldos.idcredito = creditoforward.idcredito
+        AND creditoforward.estado != 'REVERSADO'
 
 		LEFT JOIN credito
 		ON creditoforward.idcredito = credito.id
@@ -1592,7 +1499,9 @@ AS
 	WHERE 
 		tipo = 'TRM' 
 		AND fecha = @fecha;
-	
+
+	EXEC sc_credito_saldos_actualizar @ano, @periodo;
+	EXEC sc_forward_saldos_actualizar @ano, @periodo;
 	EXEC sc_dc_credito @ano, @periodo, @nick, @nit;
 	EXEC sc_dc_forward @fecha, @nick, @nit;
 	EXEC sc_dc_resumen_credito @fecha, @trmcierre, @nick, @nit;
@@ -1937,23 +1846,271 @@ AS
     WHERE id = @id
 GO
 
--- UPDATE CALENDARIO_CIERRE SET PROCESO = 0 WHERE ANO = 2022 AND PERIODO = 8
+IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_actualizar_saldos') 
+	DROP PROCEDURE [dbo].[sc_actualizar_saldos]
+GO
 
--- SELECT * FROM dc_consolidado
+CREATE PROCEDURE [dbo].[sc_actualizar_saldos]
+AS
+	UPDATE credito SET 
+		saldo = capital - (SELECT ISNULL(SUM(valor),0) FROM detallepago WHERE credito.id = detallepago.idcredito AND detallepago.tipopago = 'Capital'),
+		saldoasignacion = capital - (SELECT ISNULL(SUM(valorasignado),0) FROM creditoforward WHERE credito.id = creditoforward.idcredito)
 
--- EXEC sc_dc_obtener '2022', '8', 'ADMIN'
+	UPDATE forward SET
+		saldo = valorusd - (SELECT ISNULL(SUM(valor),0) FROM detalleforward WHERE forward.id = detalleforward.idforward AND detalleforward.formapago = 'FORWARD' ),
+		saldoasignacion = valorusd - (SELECT ISNULL(SUM(valorasignado),0) FROM creditoforward WHERE forward.id = creditoforward.idforward AND creditoforward.estado <> 'REVERSADO' )
+    WHERE
+        estado <> 'CERRADO'
+	UPDATE creditoforward SET
+		saldoasignacion = valorasignado - (SELECT ISNULL(SUM(valor),0) FROM detalleforward WHERE creditoforward.idforward = detalleforward.idforward AND detalleforward.formapago = 'FORWARD' )
+GO
 
--- EXEC sc_dc_consolidado '2022-08-31', NULL, NULL;
+IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_forward_guardar') 
+	DROP PROCEDURE [dbo].[sc_forward_guardar]
+GO
 
--- DELETE dc_forward WHERE periodo = 8
--- DELETE dc_credito WHERE periodo = 8
--- DELETE dc_resumen_credito WHERE periodo = 8
--- DELETE dc_consolidado WHERE periodo = 8
+CREATE PROCEDURE sc_forward_guardar
+    @fechaoperacion DATE,
+    @fechacumplimiento DATE,
+    @entfinanciera INT,
+    @regional INT,
+    @valorusd NUMERIC(18,2),
+    @tasaspot NUMERIC(18,2),
+    @devaluacion NUMERIC(6,5),
+    @tasaforward NUMERIC(18,2),
+    @valorcop NUMERIC(18,2),
+    @estado VARCHAR(20),
+    @usuariocrea VARCHAR(50),
+    @observaciones NVARCHAR(MAX)
+AS
+    DECLARE @id INT;
+    DECLARE @ano INT = YEAR(@fechaoperacion);
+    DECLARE @periodo INT = MONTH(@fechaoperacion);
+    EXEC sc_obtenerconsecutivo 'FORWARD', @id OUTPUT;
 
--- SELECT * FROM dc_forward WHERE periodo = 8
--- SELECT * FROM dc_credito WHERE periodo = 8
--- SELECT * FROM dc_resumen_credito WHERE periodo = 8
--- SELECT * FROM dc_consolidado WHERE periodo = 8
+    INSERT INTO forward VALUES
+    (
+        @id,
+        @ano,
+        @periodo,
+        @fechaoperacion,
+        @fechacumplimiento,
+        @entfinanciera,
+        @regional,
+        @valorusd,
+        @tasaspot,
+        @devaluacion,
+        @tasaforward,
+        @valorcop,
+        @valorusd,
+        @valorusd,
+        'ACTIVO',
+        @usuariocrea,
+        GETDATE(),
+        @usuariocrea,
+        GETDATE(),
+		DATEDIFF(DAY, @fechaoperacion, @fechacumplimiento),
+        @observaciones
+    );
+
+    EXEC sc_forward_saldos_actualizar @ano, @periodo, @id;
+GO
+
+IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_credito_guardar') 
+	DROP PROCEDURE [dbo].[sc_credito_guardar]
+GO
+
+CREATE PROCEDURE sc_credito_guardar
+    @fechadesembolso DATE,
+    @moneda INT,
+    @entfinanciera INT,
+    @regional INT,
+    @lineacredito INT,
+    @pagare VARCHAR(50),
+    @tipogarantia INT,
+    @capital NUMERIC(18,2),
+    @saldo NUMERIC(18,2),
+    @plazo INT,
+    @indexado INT,
+    @spread NUMERIC(6,2),
+    @tipointeres INT,
+    @amortizacionk INT,
+    @amortizacionint INT,
+    @saldoasignacion NUMERIC(18,2),
+    @estado VARCHAR(20),
+    @usuariocrea VARCHAR(50),
+	@tasafija NUMERIC(8,6),
+	@periodogracia INT,
+    @amortizacion VARCHAR(MAX),
+    @observaciones NVARCHAR(MAX)
+AS
+    DECLARE @id INT;
+    DECLARE @ano INT = YEAR(@fechadesembolso);
+    DECLARE @periodo INT = MONTH(@fechadesembolso);
+
+    EXEC sc_obtenerconsecutivo 'OBLIGACION', @id OUTPUT;
+
+    INSERT INTO credito VALUES
+    (
+        @id,
+        @ano,
+        @periodo,
+        @fechadesembolso,
+        @moneda,
+        @entfinanciera,
+        @regional,
+        @lineacredito,
+        @pagare,
+        @tipogarantia,
+        @capital,
+        @saldo,
+        @plazo,
+        @indexado,
+        @spread,
+        @tipointeres,
+        @amortizacionk,
+        @amortizacionint,
+        @saldoasignacion,
+        @estado,
+        @usuariocrea,
+        GETDATE(),
+        @usuariocrea,
+        GETDATE(),
+		@periodogracia,
+		@tasafija,
+        @amortizacion,
+        @observaciones
+    )
+
+    EXEC sc_credito_saldos_actualizar @ano, @periodo, @id
+GO
+
+IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_logtrx_guardar') 
+	DROP PROCEDURE [dbo].[sc_logtrx_guardar]
+GO
+
+CREATE PROCEDURE sc_logtrx_guardar
+    @objeto VARCHAR(20),
+    @idObjeto INT,
+    @accion VARCHAR(10),
+    @valorprevio NVARCHAR(MAX),
+    @valoractiualizado NVARCHAR(MAX),
+    @usuario VARCHAR(50)
+AS
+    INSERT INTO logtrx VALUES
+        (
+            @objeto,
+            @idObjeto,
+            GETDATE(),
+            @accion,
+            @valorprevio,
+            @valoractiualizado,
+            @usuario
+        )
+GO
+
+IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_forward_actualizar') 
+	DROP PROCEDURE [dbo].[sc_forward_actualizar]
+GO
+
+CREATE PROCEDURE sc_forward_actualizar
+    @id INT,
+    @fechaoperacion DATE,
+    @fechacumplimiento DATE,
+    @entfinanciera INT,
+    @regional INT,
+    @valorusd NUMERIC(18,2),
+    @tasaspot NUMERIC(18,2),
+    @devaluacion NUMERIC(6,5),
+    @tasaforward NUMERIC(18,2),
+    @valorcop NUMERIC(18,2),
+    @estado VARCHAR(20),
+    @usuariomod VARCHAR(50),
+    @observaciones NVARCHAR(MAX)
+AS
+    DECLARE @ano INT = YEAR(@fechaoperacion);
+    DECLARE @periodo INT = MONTH(@fechaoperacion);
+    UPDATE forward SET
+        fechaoperacion = @fechaoperacion,
+        fechacumplimiento = @fechacumplimiento,
+        entfinanciera = @entfinanciera,
+        regional = @regional,
+        valorusd = @valorusd,
+        tasaspot = @tasaspot,
+        devaluacion = @devaluacion,
+        tasaforward = @tasaforward,
+        valorcop = @valorcop,
+        estado = @estado,
+        usuariomod = @usuariomod,
+        fechamod = GETDATE(),
+        observaciones = @observaciones,
+        dias = DATEDIFF(DAY, @fechaoperacion, @fechacumplimiento)
+    WHERE
+        id = @id
+    
+    EXEC sc_forward_saldos_actualizar @ano, @periodo, @id
+GO
 
 
---delete dc_consolidado where ano = 2022 and periodo = 9
+
+IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_credito_actualizar') 
+	DROP PROCEDURE [dbo].[sc_credito_actualizar]
+GO
+
+CREATE PROCEDURE sc_credito_actualizar
+    @id INT,
+    @fechadesembolso DATE,
+    @moneda INT,
+    @entfinanciera INT,
+    @regional INT,
+    @lineacredito INT,
+    @pagare VARCHAR(50),
+    @tipogarantia INT,
+    @capital NUMERIC(18,2),
+    @saldo NUMERIC(18,2),
+    @plazo INT,
+    @indexado INT,
+    @spread NUMERIC(6,2),
+    @tipointeres INT,
+    @amortizacionk INT,
+    @amortizacionint INT,
+    @saldoasignacion NUMERIC(18,2),
+    @estado VARCHAR(20),
+    @usuariomod VARCHAR(50),
+	@tasafija NUMERIC(8,6),
+	@periodogracia INT,
+    @amortizacion VARCHAR(MAX),
+    @observaciones NVARCHAR(MAX)
+AS
+    DECLARE @ano INT = YEAR(@fechadesembolso);
+    DECLARE @periodo INT = MONTH(@fechadesembolso);
+    
+    UPDATE credito SET
+        fechadesembolso = @fechadesembolso,
+        moneda = @moneda,
+        entfinanciera = @entfinanciera,
+        regional = @regional,
+        lineacredito = @lineacredito,
+        pagare = @pagare,
+        tipogarantia = @tipogarantia,
+        capital = @capital,
+        saldo = @saldo,
+        plazo = @plazo,
+        indexado = @indexado,
+        spread = @spread,
+        tipointeres = @tipointeres,
+        amortizacionk = @amortizacionk,
+        amortizacionint = @amortizacionint,
+        saldoasignacion = @saldoasignacion,
+        estado = @estado,
+        usuariomod = @usuariomod,
+        fechamod = GETDATE(),
+        tasafija = @tasafija,
+        periodogracia = @periodogracia,
+        amortizacion = @amortizacion,
+        observaciones = @observaciones
+    WHERE
+        id = @id
+
+    EXEC sc_credito_saldos_actualizar @ano, @periodo, @id
+GO
