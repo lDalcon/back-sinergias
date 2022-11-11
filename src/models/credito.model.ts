@@ -127,7 +127,7 @@ export class Credito {
         }
     }
 
-    async actualizar(transaction?: mssql.Transaction) {
+    async actualizar(transaction?: mssql.Transaction, validarPeriodo: boolean = true) {
         let isTrx: boolean = true;
         let pool = await dbConnection();
         if (!transaction) {
@@ -136,7 +136,7 @@ export class Credito {
         }
         try {
             if (!isTrx) await transaction.begin();
-            if(this.estado != 'ANULADO'){
+            if(this.estado != 'ANULADO' && validarPeriodo){
                 let calendario: CalendarioCierre = new CalendarioCierre({ ano: this.fechadesembolso.getFullYear(), periodo: this.fechadesembolso.getMonth() + 1 });
                 calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
                 if (!calendario.registro) throw new Error('El mes se encuentra cerrado para registros.');
@@ -230,10 +230,10 @@ export class Credito {
         });
     }
 
-    async obtenerTrx(transaction: mssql.Transaction): Promise<{ ok: boolean, data?: Credito, message?: string }> {
+    async obtenerTrx(transaction: mssql.Transaction, id?: number): Promise<{ ok: boolean, data?: Credito, message?: string }> {
         return new Promise((resolve) => {
             transaction.request()
-                .input('id', mssql.Int(), this.id)
+                .input('id', mssql.Int(), id || this.id)
                 .execute('sc_credito_obtener')
                 .then(result => {
                     resolve({ ok: true, data: new Credito(result.recordset[0][0]) })

@@ -388,27 +388,31 @@ AS
         credito.fechamod AS [fechamod],
         (
             SELECT
-                creditoforward.seq AS [seq],
+                A.seq AS [seq],
                 forward.id AS [id],
                 entfinanciera.descripcion AS [entfinanciera],
-                creditoforward.valorasignado AS [valorasignado],
-                creditoforward.saldoasignacion AS [saldoasignacion],
+                A.valorasignado + ISNULL(B.valorasignado, 0) AS [valorasignado],
+                A.saldoasignacion + ISNULL(B.saldoasignacion, 0)AS [saldoasignacion],
                 forward.tasaspot AS [tasaspot],
                 forward.tasaforward AS [tasaforward], 
                 forward.fechacumplimiento AS [fechacumplimiento],
-                creditoforward.fechacrea AS [fechacrea],
-                creditoforward.estado AS [estado]
+                A.fechacrea AS [fechacrea],
+                A.estado AS [estado]
             FROM
-                creditoforward
+                creditoforward A
 
                 INNER JOIN forward
-                ON creditoforward.idforward = forward.id
+                ON A.idforward = forward.id
 
                 INNER JOIN valorcatalogo
                 ON forward.entfinanciera = valorcatalogo.id
 
+                LEFT JOIN creditoforward B
+                ON A.seq = B.seqid
+
             WHERE
-                creditoforward.idcredito = credito.id
+                A.idcredito = credito.id
+                AND A.seqid IS NULL
             FOR JSON PATH
         )AS [forwards],
         (
@@ -545,6 +549,7 @@ AS
         forward.devaluacion AS [devaluacion],
         forward.tasaforward AS [tasaforward],
         forward.valorcop AS [valorcop],
+        forward.saldo AS [saldo],
         forward.saldoasignacion AS [saldoasignacion],
         forward.estado AS [estado],
         forward.usuariocrea AS [usuariocrea],
@@ -553,25 +558,29 @@ AS
         forward.fechamod AS [fechamod],
         (
             SELECT
-                creditoforward.seq AS [seq],
+                A.seq AS [seq],
                 credito.id AS [id],
                 entfinanciera.descripcion AS [entfinanciera],
-                creditoforward.valorasignado AS [valorasignado],
-                creditoforward.saldoasignacion AS [saldoasignacion],
+                A.valorasignado + ISNULL(B.valorasignado, 0) AS [valorasignado],
+                A.saldoasignacion + ISNULL(B.saldoasignacion, 0) AS [saldoasignacion],
                 credito.fechadesembolso AS [fechadesembolso],
-                creditoforward.fechacrea AS [fechacrea],
-                creditoforward.estado AS [estado]
+                A.fechacrea AS [fechacrea],
+                A.estado AS [estado]
             FROM
-                creditoforward
+                creditoforward A
 
                 INNER JOIN credito
-                ON creditoforward.idcredito = credito.id
+                ON A.idcredito = credito.id
 
                 INNER JOIN valorcatalogo AS entfinanciera
                 ON credito.entfinanciera = entfinanciera.id
 
+                LEFT JOIN creditoforward B
+                ON A.seq = B.seqid
+
             WHERE
-                creditoforward.idforward = forward.id
+                A.idforward = forward.id
+                AND A.seqid IS NULL
             FOR JSON PATH
         ) AS creditos,
         forward.dias AS [dias]            
@@ -611,7 +620,8 @@ AS
             @usuariocrea,
             GETDATE(),
             @usuariocrea,
-            GETDATE()
+            GETDATE(),
+            NULL
         )
 GO
 
@@ -1028,6 +1038,15 @@ AS
                     A.ano = @ano
                     AND A.periodo = @periodo
                     AND A.idforward = forward.id
+            )+(
+                SELECT
+                    ISNULL(SUM(valor),0)
+                FROM
+                    cierreforward B
+                WHERE
+                    B.ano = @ano
+                    AND B.periodo = @periodo
+                    AND B.id = forward.id
             ),
             0,
             forward.valorusd
@@ -1074,9 +1093,25 @@ AS
 
 
     INSERT INTO forward_saldos
-    SELECT * FROM @TEMP
+    SELECT 
+            idforward,
+            idcredito,
+            ano,
+            periodo,
+            SUM(pagos),
+            SUM(asignacion),
+            saldoinicial,
+            saldoasignacioni
+    FROM @TEMP
     WHERE
         saldoasignacioni + saldoinicial <> 0
+    GROUP BY
+        idforward,
+        idcredito,
+        ano,
+        periodo,
+        saldoinicial,
+        saldoasignacioni
 GO
 
 IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_dc_forward') 
@@ -2113,4 +2148,66 @@ AS
         id = @id
 
     EXEC sc_credito_saldos_actualizar @ano, @periodo, @id
+GO
+
+IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_cierreforward_guardar') 
+	DROP PROCEDURE [dbo].[sc_cierreforward_guardar]
+GO
+
+CREATE PROCEDURE sc_cierreforward_guardar
+    @ano INT,
+    @periodo INT,
+    @id INT,
+    @valor NUMERIC(18,2),
+    @observaciones VARCHAR(200),
+    @usuario VARCHAR(50)
+AS
+    INSERT INTO cierreforward VALUES
+    (
+        @ano,
+        @periodo,
+        @id,
+        @valor,
+        @observaciones,
+        GETDATE(),
+        @usuario
+    )
+GO
+
+IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_creditoforward_editar') 
+	DROP PROCEDURE [dbo].[sc_creditoforward_editar]
+GO
+
+CREATE PROCEDURE sc_creditoforward_editar
+    @seq INT,
+    @ano INT,
+    @periodo INT,
+    @valor NUMERIC(18,2),
+    @justificacion VARCHAR(500),
+    @usuario VARCHAR(50)
+AS
+    INSERT INTO creditoforward
+    SELECT
+        @ano,
+        @periodo,
+        idcredito,
+        idforward,
+        @valor,
+        @valor,
+        'REVERSADO',
+        @justificacion,
+        @usuario,
+        GETDATE(),
+        @usuario,
+        GETDATE(),
+        @seq
+    FROM
+        creditoforward A
+    WHERE seq = @seq
+
+    UPDATE creditoforward SET
+        usuariomod = @usuario,
+        fechamod = GETDATE()
+    WHERE
+        seq = @seq
 GO

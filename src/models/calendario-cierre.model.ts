@@ -144,4 +144,9 @@ export class CalendarioCierre {
         })
     }
 
+    async validar(transaction: mssql.Transaction, ano: number, periodo: number, proceso: string): Promise<boolean> {
+        let calendario: CalendarioCierre = new CalendarioCierre({ ano, periodo });
+        calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
+        return proceso == 'registro' ? calendario.registro : calendario.proceso;
+    }
 }

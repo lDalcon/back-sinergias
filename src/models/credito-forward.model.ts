@@ -38,9 +38,8 @@ export class CreditoForward {
         this.fechamod = new Date(creditoforward?.fechamod) || this.fechamod;
     }
 
-    async guardar(transaction: mssql.Transaction): Promise<{ ok: boolean, message: string }> {
-        return new Promise((resolve) => {
-            transaction.request()
+    async guardar(transaction: mssql.Transaction){
+        await transaction.request()
                 .input('ano', mssql.Int(), this.ano)
                 .input('periodo', mssql.Int(), this.periodo)
                 .input('idcredito', mssql.Int(), this.idcredito)
@@ -49,15 +48,6 @@ export class CreditoForward {
                 .input('usuariocrea', mssql.VarChar(50), this.usuariocrea)
                 .input('estado', mssql.VarChar(50), null)
                 .execute('sc_creditoforward_crear')
-                .then(result => {
-                    console.log(result.recordset)
-                    resolve({ ok: true, message: 'Credito asignado' })
-                })
-                .catch(err => {
-                    console.log(err);
-                    resolve({ ok: false, message: err })
-                })
-        });
     }
 
     async asignarCredito(): Promise<{ ok: boolean, message: any }> {
@@ -81,6 +71,47 @@ export class CreditoForward {
                 resolve({ ok: false, message: err })
             }
         })
+    }
+
+    async procesarEdicion(data: any){
+        let pool = await dbConnection();
+        let transaction = new mssql.Transaction(pool);
+        try {
+            await transaction.begin();
+            let calendario = new CalendarioCierre();
+            let isOpen = await calendario.validar(transaction, data.ano, data.periodo, 'registro');
+            if(!isOpen) throw new Error('El periodo se encuentra cerrado para registros');
+            await this.editar(transaction, data);
+            let forward = (await new Forward().obtenerTrx(transaction, data.idforward))?.data || new Forward();
+            if(forward.id == 0) throw new Error('Forward no encontrado');
+            forward.saldoasignacion += data.valor;
+            forward.usuariomod = data.usuario;
+            await forward.actualizar(transaction, false);
+            let credito = (await new Credito().obtenerTrx(transaction, data.idcredito))?.data || new Credito();
+            if (credito.id == 0) throw new Error('El crédito no fue encontrado')
+            credito.saldoasignacion += data.valor;
+            await credito.actualizar(transaction, false);
+            await new ForwardSaldos().actualizarByAnoAndPeriodo(transaction, data.ano, data.periodo, data.idforward);
+            await transaction.commit();
+            await pool.close();
+            return {ok: true, message: `Forward actualizado`}
+        } catch (error) {
+            console.log(error)
+            await transaction.rollback();
+            await pool.close();
+            return {ok: false, message: error}
+        }
+    }
+
+    async editar(transaction: mssql.Transaction, data: any){
+        await transaction.request()
+            .input('seq', mssql.Int(), data.seq)
+            .input('ano', mssql.Int(), data.ano)
+            .input('periodo', mssql.Int(), data.periodo)
+            .input('valor', mssql.Numeric(18,2), data.valor)
+            .input('justificacion', mssql.VarChar(500), data.justificacion)
+            .input('usuario', mssql.VarChar(50), data.usuario)
+            .execute('sc_creditoforward_editar')
     }
 
     private async obtenerDatos(transaction: mssql.Transaction) {

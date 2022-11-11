@@ -2,7 +2,9 @@ import mssql from 'mssql';
 import dbConnection from "../config/database";
 import { IForward } from '../interface/forward.interface';
 import { CalendarioCierre } from './calendario-cierre.model';
+import { CierreForward } from './cierre-forward.model';
 import { DetalleForward } from './detalle-forward.model';
+import { ForwardSaldos } from './forward-saldos.model';
 import { Regional } from "./regional.model";
 import { ValorCatalogo } from "./valor-catalogo.model";
 
@@ -64,9 +66,9 @@ export class Forward {
         }
         try {
             if (!isTrx) await transaction.begin();
-            let calendario: CalendarioCierre = new CalendarioCierre({ano: this.fechaoperacion.getFullYear(), periodo: this.fechaoperacion.getMonth() + 1});
+            let calendario: CalendarioCierre = new CalendarioCierre({ ano: this.fechaoperacion.getFullYear(), periodo: this.fechaoperacion.getMonth() + 1 });
             calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
-            if (!calendario.registro ) throw new Error('El mes se encuentra cerrado para registros.');
+            if (!calendario.registro) throw new Error('El mes se encuentra cerrado para registros.');
             await new mssql.Request(transaction)
                 .input('fechaoperacion', mssql.Date(), this.fechaoperacion)
                 .input('fechacumplimiento', mssql.Date(), this.fechacumplimiento)
@@ -96,7 +98,7 @@ export class Forward {
         }
     }
 
-    async actualizar(transaction?: mssql.Transaction) {
+    async actualizar(transaction?: mssql.Transaction, validarPeriodo: boolean = true) {
         let isTrx: boolean = true;
         let pool = await dbConnection();
         if (!transaction) {
@@ -105,9 +107,11 @@ export class Forward {
         }
         try {
             if (!isTrx) await transaction.begin();
-            let calendario: CalendarioCierre = new CalendarioCierre({ano: this.fechaoperacion.getFullYear(), periodo: this.fechaoperacion.getMonth() + 1});
-            calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
-            if (!calendario.registro ) throw new Error('El mes se encuentra cerrado para registros.');
+            if(validarPeriodo){
+                let calendario: CalendarioCierre = new CalendarioCierre({ ano: this.fechaoperacion.getFullYear(), periodo: this.fechaoperacion.getMonth() + 1 });
+                calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
+                if (!calendario.registro) throw new Error('El mes se encuentra cerrado para registros.');
+            }
             await new mssql.Request(transaction)
                 .input('id', mssql.Int(), this.id)
                 .input('fechaoperacion', mssql.Date(), this.fechaoperacion)
@@ -116,7 +120,7 @@ export class Forward {
                 .input('regional', mssql.Int(), this.regional.id)
                 .input('valorusd', mssql.Numeric(18, 2), this.valorusd)
                 .input('tasaspot', mssql.Numeric(18, 2), this.tasaspot)
-                .input('devaluacion', mssql.Numeric(6, 5), this.devaluacion)
+                .input('devaluacion', mssql.Numeric(6, 5), this.devaluacion.toFixed(5))
                 .input('tasaforward', mssql.Numeric(18, 2), this.tasaforward)
                 .input('valorcop', mssql.Numeric(18, 2), this.valorcop)
                 .input('estado', mssql.VarChar(20), this.estado)
@@ -135,6 +139,31 @@ export class Forward {
             }
             pool.close();
             return { ok: false, message: error?.['message'] }
+        }
+    }
+
+    async procesarCierre(cierreForward: CierreForward) {
+        let pool = await dbConnection();
+        let transaction = new mssql.Transaction(pool);
+        try {
+            await transaction.begin();
+            let isOpen: boolean = await new CalendarioCierre().validar(transaction, cierreForward.ano, cierreForward.periodo, 'registro')
+            if (!isOpen) throw new Error('El periodo se encuentra cerrado para registros');
+            let forward = (await this.obtenerTrx(transaction, cierreForward.id)).data || new Forward();
+            let error = this.validarCierre(forward);
+            if(error.length > 0) throw new Error(`${error.join('. ')}`);
+            await cierreForward.guardar(transaction);
+            forward.saldo = 0;
+            forward.estado = 'CERRADO';
+            await forward.actualizar(transaction);
+            await new ForwardSaldos().actualizarByAnoAndPeriodo(transaction, cierreForward.ano, cierreForward.periodo, cierreForward.id);
+            await transaction.commit();
+            await pool.close();
+            return {ok: true, message: 'Forward cerrado correctamente!'}
+        } catch (error) {
+            await transaction.rollback();
+            await pool.close();
+            return {ok: false, message: error}
         }
     }
 
@@ -177,10 +206,10 @@ export class Forward {
         });
     }
 
-    async obtenerTrx(transaction: mssql.Transaction): Promise<{ ok: boolean, data?: Forward, message?: string }> {
-        return new Promise((resolve, reject) => {
+    async obtenerTrx(transaction: mssql.Transaction, id?: number): Promise<{ ok: boolean, data?: Forward, message?: string }> {
+        return new Promise((resolve) => {
             transaction.request()
-                .input('id', mssql.Int(), this.id)
+                .input('id', mssql.Int(), id || this.id)
                 .execute('sc_forward_obtener')
                 .then(result => {
                     resolve({ ok: true, data: new Forward(result.recordset[0][0]) })
@@ -217,4 +246,12 @@ export class Forward {
         }
     }
 
+    private validarCierre(forward: Forward): string[] {
+        let error: string[] = [];
+        if (forward.id == 0) error.push('Forward no encontrado');
+        forward?.creditos.forEach(credito => {
+            if (credito.saldoasignacion != 0) error.push(`El forward tiene un saldo ($${credito.saldoasignacion}) asociado al crédito ${credito.id}`);
+        })
+        return error;
+    }
 }

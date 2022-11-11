@@ -2,24 +2,22 @@
 // Imports
 //===============================================================================
 import { Router } from "express";
-import { actualizarForward, asignarCredito, crearForward, listarForward, obtenerForward } from "../controllers/forward.controller";
+import { actualizarForward, asignarCredito, cerrar, crearForward, editarCreditoForward, listarForward, obtenerForward } from "../controllers/forward.controller";
 
 import validarJWT from "../middlewares/validar-jwt";
 
 const router = Router();
 //===============================================================================
-// Path: api/creditos
+// Path: api/forward
 //===============================================================================
 
-router.get('/', validarJWT, listarForward);
-
 router.get('/:id', validarJWT, obtenerForward);
-
+router.get('/', validarJWT, listarForward);
 router.post('/', validarJWT, crearForward);
-
-router.put('/', validarJWT, actualizarForward);
-
 router.post('/asignarCredito', validarJWT, asignarCredito);
+router.post('/cerrar', validarJWT, cerrar);
+router.put('/', validarJWT, actualizarForward);
+router.put('/liberar', validarJWT, editarCreditoForward);
 
 //===============================================================================
 // Exports
