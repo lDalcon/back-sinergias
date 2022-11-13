@@ -933,185 +933,140 @@ AS
     SELECT @periodoanterior = CASE @periodo WHEN 1 THEN 12 ELSE @periodo - 1 END
     SELECT @anoanterior = CASE @periodo WHEN 1 THEN @ano - 1  ELSE @ano END
 
-    DECLARE @TEMP AS TABLE (
+    DECLARE @tmp TABLE (
         idforward INT NOT NULL,
         idcredito INT NOT NULL,
         ano INT NOT NULL,
         periodo INT NOT NULL,
-        pagos NUMERIC(18,2) NOT NULL,
-        asignacion NUMERIC(18,2) NOT NULL,
         saldoinicial NUMERIC(18,2) NOT NULL,
-        saldoasignacioni NUMERIC(18,2) NOT NULL
+        movimiento NUMERIC(18,2) NOT NULL,
+        saldofinal NUMERIC(18,2) NOT NULL
     )
 
     DELETE forward_saldos
     WHERE
-        idforward = ISNULL(@id, idforward)
-        AND ano = @ano
+        ano = @ano
         AND periodo = @periodo
+        AND idforward = ISNULL(@id, idforward)
 
-    /* Forwards del mes anterior */
-
-    INSERT INTO @TEMP
-        SELECT
-            forward_saldos.idforward,
-            forward_saldos.idcredito,
-            @ano,
-            @periodo,
-            (
-                SELECT 
-                    ISNULL(SUM(detalleforward.valor),0) 
-                FROM detalleforward 
-                    INNER JOIN detallepago
-                    ON detalleforward.seq = detallepago.seq
-                WHERE 
-                    detalleforward.ano = @ano 
-                    AND detalleforward.periodo = @periodo 
-                    AND detalleforward.idforward = forward_saldos.idforward
-                    AND detallepago.idcredito = forward_saldos.idcredito
-                    AND detallepago.formapago = 'FORWARD'
-            ),
-            (
-                SELECT
-                    ISNULL(SUM(valorasignado),0)
-                FROM
-                    creditoforward A
-                WHERE
-                    A.ano = @ano
-                    AND A.periodo = @periodo
-                    AND A.idforward = forward_saldos.idforward
-            ),
-            forward_saldos.saldoinicial - forward_saldos.pagos,
-            forward_saldos.saldoasignacioni - forward_saldos.asignacion
-        FROM
-            forward_saldos
-        WHERE
-            ano = @anoanterior
-            AND periodo = @periodoanterior
-            AND forward_saldos.idforward = ISNULL(@id, forward_saldos.idforward)
-			AND forward_saldos.idcredito = 0
-
-	INSERT INTO @TEMP
-        SELECT
-            forward_saldos.idforward,
-            forward_saldos.idcredito,
-            @ano,
-            @periodo,
-            (
-                SELECT 
-                    ISNULL(SUM(detalleforward.valor),0) 
-                FROM detalleforward 
-                    INNER JOIN detallepago
-                    ON detalleforward.seq = detallepago.seq
-                WHERE 
-                    detalleforward.ano = @ano 
-                    AND detalleforward.periodo = @periodo 
-                    AND detalleforward.idforward = forward_saldos.idforward
-                    AND detallepago.idcredito = forward_saldos.idcredito
-                    AND detallepago.formapago = 'FORWARD'
-            ),
-            0,
-            forward_saldos.saldoinicial - forward_saldos.pagos,
-            forward_saldos.saldoasignacioni - forward_saldos.asignacion
-        FROM
-            forward_saldos
-        WHERE
-            ano = @anoanterior
-            AND periodo = @periodoanterior
-            AND forward_saldos.idforward = ISNULL(@id, forward_saldos.idforward)
-			AND forward_saldos.idcredito <> 0
-
-    /* Forwards del mes */
-    INSERT INTO @TEMP
-        SELECT
-            id,
-            0,
-            @ano,
-            @periodo,
-            0,
-            (
-                SELECT
-                    ISNULL(SUM(valorasignado),0)
-                FROM
-                    creditoforward A
-                WHERE
-                    A.ano = @ano
-                    AND A.periodo = @periodo
-                    AND A.idforward = forward.id
-            )+(
-                SELECT
-                    ISNULL(SUM(valor),0)
-                FROM
-                    cierreforward B
-                WHERE
-                    B.ano = @ano
-                    AND B.periodo = @periodo
-                    AND B.id = forward.id
-            ),
-            0,
-            forward.valorusd
-        FROM 
-            forward
-        WHERE
-            forward.id = ISNULL(@id, forward.id)
-            AND forward.ano = @ano
-            AND forward.periodo = @periodo
-
-    /* Forward Asociados en el mes*/
-
-    INSERT INTO @TEMP
-        SELECT
-            creditoforward.idforward,
-            creditoforward.idcredito,
-            @ano,
-            @periodo,
-            (
-                SELECT 
-                    ISNULL(SUM(detalleforward.valor),0) 
-                FROM detalleforward 
-                    INNER JOIN detallepago
-                    ON detalleforward.seq = detallepago.seq
-                WHERE 
-                    detalleforward.ano = @ano 
-                    AND detalleforward.periodo = @periodo 
-                    AND detalleforward.idforward = creditoforward.idforward
-                    AND detallepago.idcredito = creditoforward.idcredito
-                    AND detallepago.formapago = 'FORWARD'
-            ),
-            0,
-            SUM(creditoforward.valorasignado),
-            0
-        FROM
-            creditoforward
-        WHERE
-            creditoforward.idforward = ISNULL(@id, creditoforward.idforward)
-            AND ano = @ano
-            AND periodo = @periodo
-        GROUP BY
-            creditoforward.idforward,
-            creditoforward.idcredito
-
-
-    INSERT INTO forward_saldos
-    SELECT 
-            idforward,
-            idcredito,
-            ano,
-            periodo,
-            SUM(pagos),
-            SUM(asignacion),
-            saldoinicial,
-            saldoasignacioni
-    FROM @TEMP
+    /* SALDOS INICIALES */
+    INSERT INTO @tmp
+    SELECT
+        idforward,
+        idcredito,
+        @ano,
+        @periodo,
+        saldofinal,
+        0,
+        0
+    FROM
+        forward_saldos
     WHERE
-        saldoasignacioni + saldoinicial <> 0
+        ano = @anoanterior
+        AND periodo = @periodoanterior
+        AND idforward = ISNULL(@id, idforward)
+        AND saldofinal > 0
+
+    /* FORWARDS DEL MES */
+
+    INSERT INTO @tmp
+    SELECT
+        id,
+        0,
+        ano,
+        periodo,
+        0,
+        valorusd,
+        0
+    FROM
+        forward
+    WHERE
+        ano = @ano
+        AND periodo = @periodo
+        AND id = ISNULL(@id, id)
+
+    /* Movimientos de asignacion*/
+
+    INSERT @tmp
+    SELECT
+        idforward,
+        0,
+        ano,
+        periodo,
+        0,
+        SUM(- valorasignado),
+        0
+    FROM
+        creditoforward
+    WHERE
+        ano = @ano
+        AND periodo = @periodo
+        AND idforward = ISNULL(@id, idforward)
     GROUP BY
+        idforward,
+        ano,
+        periodo
+
+    /* Saldos forward asignados */
+    INSERT INTO @tmp
+    SELECT
         idforward,
         idcredito,
         ano,
         periodo,
-        saldoinicial,
-        saldoasignacioni
+        0,
+        valorasignado,
+        0
+    FROM
+        creditoforward
+    WHERE
+        ano = @ano
+        AND periodo = @periodo
+        AND idforward = ISNULL(@id, idforward)
+
+    /* Movimiento de pagos */
+    INSERT INTO @tmp
+    SELECT
+        detalleforward.idforward,
+        detallepago.idcredito,
+        detalleforward.ano,
+        detalleforward.periodo,
+        0,
+        SUM(- detalleforward.valor),
+        0
+    FROM
+        detalleforward
+
+        INNER JOIN detallepago
+        ON detalleforward.seq = detallepago.seq
+    WHERE
+        detalleforward.ano =  @ano
+        AND detalleforward.periodo = @periodo
+        AND detalleforward.idforward = ISNULL(@id, detalleforward.idforward)
+    GROUP BY
+        detalleforward.idforward,
+        detallepago.idcredito,
+        detalleforward.ano,
+        detalleforward.periodo
+
+    INSERT INTO forward_saldos
+    SELECT 
+        idforward,
+        idcredito,
+        ano,
+        periodo,
+        SUM(saldoinicial),
+        SUM(movimiento),
+        0
+    FROM 
+        @tmp
+    GROUP BY
+        idforward,
+        idcredito,
+        ano,
+        periodo
+
+    UPDATE forward_saldos SET saldofinal = saldoinicial + movimiento
 GO
 
 IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_dc_forward') 
@@ -1177,16 +1132,16 @@ AS
 		forward.devaluacion AS [devaluacion],
 		forward.tasaforward AS [tasaforward],
 		forward.valorcop AS [valorcop],
-		CAST(forward_saldos.saldoinicial - forward_saldos.pagos AS NUMERIC(18,2)) AS [saldoforward],
-		CAST(forward.tasaforward * (forward_saldos.saldoinicial - forward_saldos.pagos) AS NUMERIC(18,2)) AS [saldoforwardcop],
+		CAST(forward_saldos.saldofinal AS NUMERIC(18,2)) AS [saldoforward],
+		CAST(forward.tasaforward * forward_saldos.saldofinal AS NUMERIC(18,2)) AS [saldoforwardcop],
 		ISNULL(trm.valor, 0) AS [tasadeuda],
 		credito.fechadesembolso AS [fechadesembolso],
 		CAST(trm.valor - forward.tasaforward AS NUMERIC(18,2)) AS [diftasa],
-		CAST((ISNULL(trm.valor, forward.tasaspot) - forward.tasaforward)*(forward_saldos.saldoinicial - forward_saldos.pagos) AS NUMERIC(18,2)) AS [totaldifcambio],
-		CAST(((ISNULL(trm.valor, forward.tasaspot) - forward.tasaforward)*(forward_saldos.saldoinicial - forward_saldos.pagos)) / forward.dias AS NUMERIC(18,2)) AS [difxdia],
+		CAST((ISNULL(trm.valor, forward.tasaspot) - forward.tasaforward)* forward_saldos.saldofinal AS NUMERIC(18,2)) AS [totaldifcambio],
+		CAST(((ISNULL(trm.valor, forward.tasaspot) - forward.tasaforward)* forward_saldos.saldofinal) / forward.dias AS NUMERIC(18,2)) AS [difxdia],
 		DATEDIFF(DAY, forward.fechaoperacion, @fecha ) AS [diascausados],
-		DATEDIFF(DAY, forward.fechaoperacion, @fecha ) * (((ISNULL(trm.valor, forward.tasaspot) - forward.tasaforward)*(forward_saldos.saldoinicial - forward_saldos.pagos)) / forward.dias) AS [difacumulada],
-		CAST(((ISNULL(trm.valor, forward.tasaspot) - forward.tasaforward)*(forward_saldos.saldoinicial - forward_saldos.pagos)) - (DATEDIFF(DAY, forward.fechaoperacion, @fecha ) * (((ISNULL(trm.valor, forward.tasaspot) - forward.tasaforward)*(forward_saldos.saldoinicial - forward_saldos.pagos)) / forward.dias)) AS NUMERIC(18,2)) AS [difxcausar]
+		DATEDIFF(DAY, forward.fechaoperacion, @fecha ) * (((ISNULL(trm.valor, forward.tasaspot) - forward.tasaforward)*(forward_saldos.saldofinal)) / forward.dias) AS [difacumulada],
+		CAST(((ISNULL(trm.valor, forward.tasaspot) - forward.tasaforward)* forward_saldos.saldofinal) - (DATEDIFF(DAY, forward.fechaoperacion, @fecha ) * (((ISNULL(trm.valor, forward.tasaspot) - forward.tasaforward)*(forward_saldos.saldofinal)) / forward.dias)) AS NUMERIC(18,2)) AS [difxcausar]
 	FROM
 		forward_saldos
 
@@ -1199,13 +1154,8 @@ AS
 		LEFT JOIN valorcatalogo AS	entfinanciera
 		ON entfinanciera.id = forward.entfinanciera
 
-		LEFT JOIN creditoforward
-		ON forward_saldos.idforward = creditoforward.idforward
-        AND forward_saldos.idcredito = creditoforward.idcredito
-        AND creditoforward.estado != 'REVERSADO'
-
 		LEFT JOIN credito
-		ON creditoforward.idcredito = credito.id
+		ON forward_saldos.idcredito = credito.id
 
         INNER JOIN v_lineacredito_tipo AS lineacredito
         ON credito.lineacredito = lineacredito.id
@@ -1239,16 +1189,16 @@ AS
 		forward.devaluacion / 100 AS [devaluacion],
 		forward.tasaforward AS [tasaforward],
 		forward.valorcop AS [valorcop],
-		CAST(forward_saldos.saldoasignacioni - forward_saldos.asignacion AS NUMERIC(18,2)) AS [saldoforward],
-		CAST(forward.tasaforward * (forward_saldos.saldoasignacioni - forward_saldos.asignacion) AS NUMERIC(18,2)) AS [saldoforwardcop],
+		CAST(forward_saldos.saldofinal AS NUMERIC(18,2)) AS [saldoforward],
+		CAST(forward.tasaforward * (forward_saldos.saldofinal) AS NUMERIC(18,2)) AS [saldoforwardcop],
 		CAST(0.00 AS NUMERIC(18,2)) AS [tasadeuda],
 		NULL AS [fechadesembolso],
 		CAST(forward.tasaspot - forward.tasaforward AS NUMERIC(18,2))  AS [diftasa],
-		CAST((forward.tasaspot - forward.tasaforward) * (forward_saldos.saldoasignacioni - forward_saldos.asignacion) AS NUMERIC(18,2))  AS [totaldifcambio],
-		CAST(((forward.tasaspot - forward.tasaforward) * (forward_saldos.saldoasignacioni - forward_saldos.asignacion)) / forward.dias AS NUMERIC(18,2))  AS [difxdia],
+		CAST((forward.tasaspot - forward.tasaforward) * (forward_saldos.saldofinal) AS NUMERIC(18,2))  AS [totaldifcambio],
+		CAST(((forward.tasaspot - forward.tasaforward) * (forward_saldos.saldofinal)) / forward.dias AS NUMERIC(18,2))  AS [difxdia],
 		DATEDIFF(DAY, forward.fechaoperacion, @fecha ) AS [diascausados],
-		DATEDIFF(DAY, forward.fechaoperacion, @fecha ) * (((forward.tasaspot - forward.tasaforward) * (forward_saldos.saldoasignacioni - forward_saldos.asignacion)) / forward.dias) AS [difacumulada],
-		CAST((( forward.tasaspot - forward.tasaforward) * (forward_saldos.saldoasignacioni - forward_saldos.asignacion))-(DATEDIFF(DAY, forward.fechaoperacion, @fecha ) * (((forward.tasaspot - forward.tasaforward)*(forward_saldos.saldoinicial - forward_saldos.pagos)) / forward.dias)) AS NUMERIC(18,2)) AS [difxcausar]
+		DATEDIFF(DAY, forward.fechaoperacion, @fecha ) * (((forward.tasaspot - forward.tasaforward) * (forward_saldos.saldofinal)) / forward.dias) AS [difacumulada],
+		CAST((( forward.tasaspot - forward.tasaforward) * (forward_saldos.saldofinal))-(DATEDIFF(DAY, forward.fechaoperacion, @fecha ) * (((forward.tasaspot - forward.tasaforward)*(forward_saldos.saldofinal)) / forward.dias)) AS NUMERIC(18,2)) AS [difxcausar]
 	FROM
 		forward_saldos
 
@@ -1260,9 +1210,6 @@ AS
 
 		LEFT JOIN valorcatalogo AS	entfinanciera
 		ON entfinanciera.id = forward.entfinanciera
-
-		LEFT JOIN creditoforward
-		ON forward_saldos.idforward = creditoforward.idforward
 
 	WHERE
 		forward_saldos.ano = YEAR(@fecha)
@@ -2192,8 +2139,8 @@ AS
         @periodo,
         idcredito,
         idforward,
-        @valor,
-        @valor,
+        -@valor,
+        -@valor,
         'REVERSADO',
         @justificacion,
         @usuario,
