@@ -20,7 +20,7 @@ export class MacroEconomicos {
 
     async getByDateAndType(): Promise<{ ok: boolean, macroeconomicos?: MacroEconomicos, message?: any }> {
         let pool = await dbConnection();
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             pool.request()
                 .input('date', mssql.Date(), this.fecha)
                 .input('type', mssql.VarChar(50), this.tipo)
@@ -31,6 +31,22 @@ export class MacroEconomicos {
                 })
                 .catch(err => {
                     pool.close();
+                    console.log(err);
+                    resolve({ ok: false, message: err })
+                })
+        });
+    }
+
+    async getByDateAndTypeTrx(transaction: mssql.Transaction): Promise<{ ok: boolean, macroeconomicos?: MacroEconomicos, message?: any }> {
+        return new Promise((resolve) => {
+            transaction.request()
+                .input('date', mssql.Date(), this.fecha)
+                .input('type', mssql.VarChar(50), this.tipo)
+                .execute('sc_getMacroeconomicosByDateAndType')
+                .then(result => {
+                    resolve({ ok: true, macroeconomicos: new MacroEconomicos(result.recordset[0]) });
+                })
+                .catch(err => {
                     console.log(err);
                     resolve({ ok: false, message: err })
                 })

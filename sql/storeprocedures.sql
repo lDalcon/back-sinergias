@@ -1,4 +1,3 @@
-
 USE Sinergias_db
 GO
 /* Procedimientos */
@@ -753,38 +752,47 @@ AS
 
     INSERT INTO credito_saldos
 		SELECT
-			id,
+			credito_saldos.id,
 			@ano,
 			@periodo,
 			(SELECT ISNULL(SUM(valor),0) FROM detallepago WHERE ano = @ano AND periodo = @periodo AND tipopago = 'Capital' AND detallepago.idcredito = credito_saldos.id ),
 			(SELECT ISNULL(SUM(valor),0) FROM detallepago WHERE ano = @ano AND periodo = @periodo AND tipopago = 'Interes' AND detallepago.idcredito = credito_saldos.id ),
 			0,
-			0,
+			ISNULL((SELECT TOP 1 tasaEA FROM v_credito_tasa WHERE v_credito_tasa.id = credito_saldos.id AND fechaPeriodo <= EOMONTH(CONCAT(@ano,'-',@periodo, '-', '01')) ORDER by fechaPeriodo desc), -1),
 			credito_saldos.saldokinicial - credito_saldos.abonoscapital
 		FROM
-			credito_saldos
+			credito_saldos           
 		WHERE
-			ano = @anoanterior
-			AND periodo = @periodoanterior
-			AND id = ISNULL(@id, id)
-
+			credito_saldos.ano = @anoanterior
+			AND credito_saldos.periodo = @periodoanterior
+			AND credito_saldos.id = ISNULL(@id, credito_saldos.id)
+            
+		GROUP BY
+			credito_saldos.id,
+			credito_saldos.saldokinicial,
+			credito_saldos.abonoscapital
 
 	INSERT INTO credito_saldos
 		SELECT 
-			id,
+			credito.id,
 			@ano,
 			@periodo,
 			(SELECT ISNULL(SUM(valor),0) FROM detallepago WHERE ano = @ano AND periodo = @periodo AND tipopago = 'Capital' AND detallepago.idcredito = credito.id ),
 			(SELECT ISNULL(SUM(valor),0) FROM detallepago WHERE ano = @ano AND periodo = @periodo AND tipopago = 'Interes' AND detallepago.idcredito = credito.id ),
 			0,
-			0,
+            ISNULL((SELECT TOP 1 tasaEA FROM v_credito_tasa WHERE v_credito_tasa.id = credito.id AND fechaPeriodo <= EOMONTH(CONCAT(@ano,'-',@periodo, '-', '01')) ORDER by fechaPeriodo desc), -1),
 			credito.capital
 		FROM 
 			credito
+
 		WHERE
-			ano = @ano
-			AND periodo = @periodo
-			AND id = ISNULL(@id, id)
+			credito.ano = @ano
+			AND credito.periodo = @periodo
+			AND credito.id = ISNULL(@id, credito.id)
+        
+        GROUP BY
+            credito.id,
+            credito.capital
 
 	DELETE credito_saldos
 	WHERE
@@ -1559,6 +1567,8 @@ AS
 	WHERE
 		ano = @ano
 		AND periodo = @periodo
+    
+    EXEC sc_logtrx_guardar 'DIFCAMBIO', @periodo, 'Actualizar', '', '', @nick
 GO
 
 
@@ -1698,7 +1708,7 @@ IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_deuda_consolidado')
 	DROP PROCEDURE [dbo].[sc_deuda_consolidado]
 GO
 
-CREATE OR ALTER PROCEDURE sc_deuda_consolidado
+CREATE PROCEDURE sc_deuda_consolidado
 	@fecha DATE
 AS
 	DECLARE @ano INT
@@ -1734,8 +1744,26 @@ AS
 			WHEN '500' THEN SUM (credito_saldos.saldokinicial - credito_saldos.abonoscapital)
 			WHEN '501' THEN SUM (credito_saldos.saldokinicial - credito_saldos.abonoscapital) * @trmcierre
 		END AS [saldocop],
-		0 AS [tasapromedio],
-		0 AS [devaluacionpromedio],
+		SUM(credito_saldos.tasapromedio * (credito_saldos.saldokinicial - credito_saldos.abonoscapital)) / SUM(credito_saldos.saldokinicial - credito_saldos.abonoscapital) AS [tasapromedio],
+		CASE credito.moneda
+			WHEN '500' THEN 0
+			WHEN '501' THEN 
+            (
+                SELECT
+                    (isnuLL(SUM(devaluacion*saldoforward), 0) / ISNULL(SUM(saldoforward),1))/100
+                FROM
+                    dc_forward
+
+                    INNER JOIN regional A
+                    ON dc_forward.regional = A.nombre
+
+                WHERE
+                    dc_forward.ano = credito_saldos.ano
+                    AND dc_forward.periodo = credito_saldos.periodo
+                    AND dc_forward.entfinanciera = v_entfinanciera.descripcion
+                    AND dc_forward.lineacredito = v_lineacredito_tipo.descripcion
+                    AND A.nit = regional.nit
+        ) END AS [devaluacionpromedio],
 		CASE credito.moneda
 			WHEN '500' THEN 0
 			WHEN '501' THEN @trmcierre
@@ -1768,6 +1796,7 @@ AS
 	WHERE
 		credito_saldos.ano = @ano
 		AND credito_saldos.periodo = @periodo
+        AND credito_saldos.saldokinicial - credito_saldos.abonoscapital != 0
 	GROUP BY
 		credito_saldos.ano,
 		calendario_cierre.mes,
@@ -1776,10 +1805,16 @@ AS
 		v_lineacredito_tipo.descripcion,
 		moneda.descripcion,
 		credito.moneda,
-		credito_saldos.tasapromedio,
-		credito_saldos.periodo
+		credito_saldos.periodo,
+        regional.nit
 	ORDER BY
 		credito_saldos.periodo ASC
+
+    DELETE deuda_consolidado
+    WHERE
+        ano = @ano
+        AND periodo = @periodo
+        AND saldomonedaoriginal = 0
 GO
 
 
@@ -2157,4 +2192,22 @@ AS
         fechamod = GETDATE()
     WHERE
         seq = @seq
+GO
+
+IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_creditos_saldos_obteneractivos') 
+	DROP PROCEDURE [dbo].[sc_creditos_saldos_obteneractivos]
+GO
+
+CREATE PROCEDURE sc_creditos_saldos_obteneractivos
+    @ano INT,
+    @periodo INT
+AS
+    SELECT DISTINCT
+        id
+    FROM
+        credito_saldos
+    -- WHERE
+    --     ano = @ano
+    --     AND periodo = @periodo
+    --     AND saldokinicial - abonoscapital > 0
 GO

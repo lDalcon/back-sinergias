@@ -136,7 +136,7 @@ export class Credito {
         }
         try {
             if (!isTrx) await transaction.begin();
-            if(this.estado != 'ANULADO' && validarPeriodo){
+            if (this.estado != 'ANULADO' && validarPeriodo) {
                 let calendario: CalendarioCierre = new CalendarioCierre({ ano: this.fechadesembolso.getFullYear(), periodo: this.fechadesembolso.getMonth() + 1 });
                 calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
                 if (!calendario.registro) throw new Error('El mes se encuentra cerrado para registros.');
@@ -313,6 +313,51 @@ export class Credito {
         }
     }
 
+    async simularTrx(transaction: mssql.Transaction) {
+        let macroeconomico = new MacroEconomicos();
+        macroeconomico.tipo = this.indexado.descripcion;
+        macroeconomico.fecha = this.fechadesembolso;
+        let tasa: number = 0;
+        if (this.indexado.descripcion == 'TASA FIJA') tasa = this.tasa;
+        else tasa = (await macroeconomico.getByDateAndTypeTrx(transaction))?.macroeconomicos?.valor || 0;
+        let spreadEA: number = this.convertirTasaEA(this.spread, this.tipointeres.config);
+        this.amortizacion = [];
+        this.amortizacion.push({
+            nper: 0,
+            fechaPeriodo: new Date(this.fechadesembolso),
+            tasaIdxEA: tasa / 100,
+            spreadEA: spreadEA,
+            tasaEA: (1 + tasa / 100) * (1 + spreadEA) - 1,
+            saldoCapital: this.capital,
+            valorInteres: 0,
+            abonoCapital: 0,
+            pagoTotal: 0,
+            interesCausado: 0,
+            actualizaIdx: false
+        })
+        for (let i = 1; i <= this.plazo; i++) {
+            let fechaPeriodo: Date = new Date(new Date(this.amortizacion[i - 1].fechaPeriodo).setDate(this.amortizacion[i - 1].fechaPeriodo.getDate() + 30))
+            let amortizacion = new Amortizacion();
+            amortizacion.nper = i;
+            amortizacion.fechaPeriodo = fechaPeriodo;
+            amortizacion.tasaIdxEA = tasa / 100;
+            amortizacion.spreadEA = spreadEA;
+            amortizacion.tasaEA = (1 + tasa / 100) * (1 + spreadEA) - 1;
+            amortizacion.abonoCapital = this.calcularAbonoCapital(i);
+            amortizacion.saldoCapital = this.amortizacion[i - 1].saldoCapital - amortizacion.abonoCapital;
+            amortizacion.valorInteres = this.calcularInteresPagado(i, (1 + tasa / 100) * (1 + spreadEA) - 1);
+            amortizacion.pagoTotal = amortizacion.abonoCapital + amortizacion.valorInteres;
+            amortizacion.interesCausado = this.calcularInteresCausado(i, (1 + tasa / 100) * (1 + spreadEA) - 1);
+            amortizacion.actualizaIdx = i % this.indexado.config.nper === 0 ? true : false;
+            this.amortizacion.push(amortizacion);
+            if (this.amortizacionint.config.nper != -1 && i % this.amortizacionint.config.nper === 0) {
+                macroeconomico.fecha = fechaPeriodo;
+                if (this.indexado.descripcion == 'TASA FIJA') tasa = this.tasa;
+                else tasa = (await macroeconomico.getByDateAndTypeTrx(transaction))?.macroeconomicos?.valor || 0;
+            }
+        }
+    }
+
     async actualizarSaldoAsignacion(valorAsignado: number, transaction: mssql.Transaction) {
         try {
             await transaction.request()
@@ -344,17 +389,24 @@ export class Credito {
             .execute('sc_credito_actualizarestado')
     }
 
-    async actualizarAmortizacion(): Promise<{ ok: boolean, message: any }> {
-        return new Promise(async (resolve) => {
-            let pool = await dbConnection();
-            let transaction = new mssql.Transaction(pool);
-            try {
-                await transaction.begin();
-
-            } catch (error) {
-
+    async actualizarAmortizacion(params: any) {
+        let pool = await dbConnection();
+        let transaction = new mssql.Transaction(pool);
+        try {
+            await transaction.begin();
+            let creditosActivos = await this.obtenerCreditosActivos(transaction, params);
+            for(let i = 0; i < creditosActivos.length; i++){
+                let credito = (await this.obtenerTrx(transaction, creditosActivos[i].id)).data || new Credito();
+                await credito.simularTrx(transaction);
+                await credito.actualizar(transaction, false);
             }
-        })
+            await transaction.commit();
+            return {ok: true, message: 'Proceso realizado'}
+        } catch (error) {
+            console.log(error)
+            await transaction.rollback();
+            return {ok: false, message: 'Error al procesar Actualización'}
+        }
     }
 
     private calcularInteresPagado(ncuota: number, tasaEA: number): number {
@@ -376,7 +428,7 @@ export class Credito {
     }
 
     private convertirTasaEA(tasa: number, config: any) {
-        let tasaPeriodica, tasaVencida: number = 0;
+        let tasaPeriodica: number, tasaVencida: number = 0;
         if (config.par === 'EFECTIVA') tasaPeriodica = Math.pow((1 + tasa / 100), (1 / config.nper)) - 1
         else tasaPeriodica = (tasa / 100) / config.nper;
         switch (config.par) {
@@ -390,6 +442,14 @@ export class Credito {
                 tasaVencida = tasaPeriodica;
                 break;
         }
-        return Math.pow(1 + tasaVencida, config.nper) - 1;
+        return +(Math.pow(1 + tasaVencida, config.nper) - 1).toFixed(5);
+    }
+
+    private async obtenerCreditosActivos(transaction: mssql.Transaction, params: any) {
+        let result = await transaction.request()
+            .input('ano', mssql.Int(), params.ano)
+            .input('periodo', mssql.Int(), params.periodo)
+            .execute('sc_creditos_saldos_obteneractivos')
+        return result.recordset
     }
 }

@@ -1,0 +1,5 @@
+USE SINERGIAS_DB
+GO
+
+ALTER TABLE credito_saldos
+ALTER COLUMN tasapromedio NUMERIC(7,5) NOT NULL

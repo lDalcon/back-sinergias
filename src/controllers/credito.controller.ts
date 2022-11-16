@@ -64,8 +64,13 @@ export const validarPagare = async (req: Request, res: Response) => {
         .catch(err => res.status(500).json({ ok: false, message: err }))
 }
 
-export const actualizarAmortizacion = async(req: Request, res: Response) => {
+export const actualizarAmortizacion = async (req: Request, res: Response) => {
     let credito: Credito = new Credito();
-    credito.actualizarAmortizacion()
+    credito.actualizarAmortizacion(req.body)
+        .then(result => {
+            if (!result.ok) return res.status(400).json(result);
+            return res.status(200).json(result)
+        })
+        .catch(err => res.status(500).json({ ok: false, message: err }))
 }
 

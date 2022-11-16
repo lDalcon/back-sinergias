@@ -40,13 +40,14 @@ AS
         id,
         YEAR(fechaPeriodo) AS [ano],
         MONTH(fechaPeriodo) AS [periodo],
+        fechaPeriodo,
         tasaEA
     FROM 
         credito
         CROSS APPLY OPENJSON(amortizacion,'$.amortizacion')
         WITH (
             nper INT '$.nper',
-            tasaEA NUMERIC(6,5) '$.tasaEA',
+            tasaEA NUMERIC(8,5) '$.tasaEA',
             fechaPeriodo DATE '$.fechaPeriodo'
         )
 GO
