@@ -10,7 +10,7 @@ export class ForwardSaldos {
     saldoinicial: number = 0;
     saldoasignacionini: number = 0;
 
-    constructor(forwardSaldo?: any){
+    constructor(forwardSaldo?: any) {
         this.idforward = forwardSaldo?.idforward || this.idforward;
         this.idcredito = forwardSaldo?.idcredito || this.idcredito;
         this.ano = forwardSaldo?.ano || this.ano;
@@ -21,8 +21,8 @@ export class ForwardSaldos {
         this.saldoasignacionini = forwardSaldo?.saldoasignacionini || this.saldoasignacionini;
     }
 
-    async actualizarByAnoAndPeriodo(transaction: mssql.Transaction, ano: number, periodo: number, idForward?: number){
-        return new Promise((resolve)=> {
+    async actualizarByAnoAndPeriodo(transaction: mssql.Transaction, ano: number, periodo: number, idForward?: number): Promise<{ ok: boolean, message: any }> {
+        return new Promise((resolve) => {
             transaction.request()
                 .input('ano', mssql.Int(), ano)
                 .input('periodo', mssql.Int(), periodo)

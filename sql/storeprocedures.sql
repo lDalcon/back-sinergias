@@ -758,7 +758,7 @@ AS
 			(SELECT ISNULL(SUM(valor),0) FROM detallepago WHERE ano = @ano AND periodo = @periodo AND tipopago = 'Capital' AND detallepago.idcredito = credito_saldos.id ),
 			(SELECT ISNULL(SUM(valor),0) FROM detallepago WHERE ano = @ano AND periodo = @periodo AND tipopago = 'Interes' AND detallepago.idcredito = credito_saldos.id ),
 			0,
-			ISNULL((SELECT TOP 1 tasaEA FROM v_credito_tasa WHERE v_credito_tasa.id = credito_saldos.id AND fechaPeriodo <= EOMONTH(CONCAT(@ano,'-',@periodo, '-', '01')) ORDER by fechaPeriodo desc), -1),
+			ISNULL((SELECT TOP 1 tasaEA FROM v_credito_tasa WHERE v_credito_tasa.id = credito_saldos.id AND fechaPeriodo <= EOMONTH(CONCAT(@ano,'-',@periodo, '-', '01')) ORDER by fechaPeriodo desc), 0),
 			credito_saldos.saldokinicial - credito_saldos.abonoscapital
 		FROM
 			credito_saldos           
@@ -780,7 +780,7 @@ AS
 			(SELECT ISNULL(SUM(valor),0) FROM detallepago WHERE ano = @ano AND periodo = @periodo AND tipopago = 'Capital' AND detallepago.idcredito = credito.id ),
 			(SELECT ISNULL(SUM(valor),0) FROM detallepago WHERE ano = @ano AND periodo = @periodo AND tipopago = 'Interes' AND detallepago.idcredito = credito.id ),
 			0,
-            ISNULL((SELECT TOP 1 tasaEA FROM v_credito_tasa WHERE v_credito_tasa.id = credito.id AND fechaPeriodo <= EOMONTH(CONCAT(@ano,'-',@periodo, '-', '01')) ORDER by fechaPeriodo desc), -1),
+            ISNULL((SELECT TOP 1 tasaEA FROM v_credito_tasa WHERE v_credito_tasa.id = credito.id AND fechaPeriodo <= EOMONTH(CONCAT(@ano,'-',@periodo, '-', '01')) ORDER by fechaPeriodo desc), 0),
 			credito.capital
 		FROM 
 			credito
@@ -1750,17 +1750,23 @@ AS
 			WHEN '501' THEN 
             (
                 SELECT
-                    (isnuLL(SUM(devaluacion*saldoforward), 0) / ISNULL(SUM(saldoforward),1))/100
+                    (ISNULL(SUM(devaluacion*saldoforward), 0) / ISNULL(SUM(saldoforward),1))/100
                 FROM
                     dc_forward
 
                     INNER JOIN regional A
                     ON dc_forward.regional = A.nombre
 
+                    LEFT JOIN credito AS cr
+                    ON dc_forward.idcredito = cr.id
+
+                    LEFT JOIN v_entfinanciera AS ent
+                    ON cr.entfinanciera = ent.id
+
                 WHERE
                     dc_forward.ano = credito_saldos.ano
                     AND dc_forward.periodo = credito_saldos.periodo
-                    AND dc_forward.entfinanciera = v_entfinanciera.descripcion
+                    AND ent.descripcion = v_entfinanciera.descripcion
                     AND dc_forward.lineacredito = v_lineacredito_tipo.descripcion
                     AND A.nit = regional.nit
         ) END AS [devaluacionpromedio],

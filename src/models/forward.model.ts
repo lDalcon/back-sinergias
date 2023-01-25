@@ -155,8 +155,10 @@ export class Forward {
             await cierreForward.guardar(transaction);
             forward.saldo = 0;
             forward.estado = 'CERRADO';
-            await forward.actualizar(transaction);
-            await new ForwardSaldos().actualizarByAnoAndPeriodo(transaction, cierreForward.ano, cierreForward.periodo, cierreForward.id);
+            let result = await forward.actualizar(transaction, false);
+            if (!result.ok) throw new Error(result.message);
+            result = await new ForwardSaldos().actualizarByAnoAndPeriodo(transaction, cierreForward.ano, cierreForward.periodo, cierreForward.id);
+            if (!result.ok) throw new Error(result.message);
             await transaction.commit();
             await pool.close();
             return {ok: true, message: 'Forward cerrado correctamente!'}
