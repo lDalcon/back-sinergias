@@ -28,6 +28,9 @@ EXEC sc_credito_saldos_actualizar '2022', '9'
 EXEC sc_credito_saldos_actualizar '2022', '10'
 EXEC sc_credito_saldos_actualizar '2022', '11'
 EXEC sc_credito_saldos_actualizar '2022', '12'
+EXEC sc_credito_saldos_actualizar '2023', '1'
+EXEC sc_credito_saldos_actualizar '2023', '2'
+
 
 
 
@@ -43,3 +46,5 @@ EXEC sc_forward_saldos_actualizar '2022', '9'
 EXEC sc_forward_saldos_actualizar '2022', '10'
 EXEC sc_forward_saldos_actualizar '2022', '11'
 EXEC sc_forward_saldos_actualizar '2022', '12'
+EXEC sc_forward_saldos_actualizar '2023', '1'
+EXEC sc_forward_saldos_actualizar '2023', '2'

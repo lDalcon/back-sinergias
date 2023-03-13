@@ -11,6 +11,7 @@ import UsuarioRoute from './routes/usuario.routes'
 import DetallePagoRoute from './routes/detalle-pago.routes'
 import ReporteRoute from './routes/reporte.routes'
 import CalendarioRoute from './routes/calendario-cierre.routes'
+import SolicitudRoute from './routes/solicitud.route'
 import path from 'path';
 
 //=========================================================
@@ -46,8 +47,9 @@ app.use('/api/usuario', UsuarioRoute);
 app.use('/api/detallepago', DetallePagoRoute);
 app.use('/api/reporte', ReporteRoute);
 app.use('/api/calendario', CalendarioRoute);
+app.use('/api/solicitud', SolicitudRoute);
 app.get('*', (req: Request, res: Response) => {
-    res.sendFile( path.resolve( __dirname, 'public/index.html' ) );
+    res.sendFile(path.resolve(__dirname, 'public/index.html'));
 });
 
 export default app;

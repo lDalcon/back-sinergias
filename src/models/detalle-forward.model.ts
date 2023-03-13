@@ -1,6 +1,4 @@
 import mssql from 'mssql';
-import dbConnection from '../config/database';
-
 export class DetalleForward {
     seq: number = 0;
     ano: number = 0;
@@ -16,6 +14,7 @@ export class DetalleForward {
     fechacrea: Date = new Date('1900-01-01');
     usuariomod: string = '';
     fechamod: Date = new Date('1900-01-01');
+    seqpago: number = 0;
 
     constructor(detalleForward?: any) {
         this.seq = detalleForward?.seq || this.seq;
@@ -32,6 +31,7 @@ export class DetalleForward {
         this.fechacrea = detalleForward?.fechacrea || this.fechacrea;
         this.usuariomod = detalleForward?.usuariomod || this.usuariomod;
         this.fechamod = detalleForward?.fechamod || this.fechamod;
+        this.seqpago = detalleForward?.seqpago || this.seqpago;
     }
 
     async guardar(transaction: mssql.Transaction): Promise<{ ok: boolean, message?: any }> {
@@ -45,6 +45,7 @@ export class DetalleForward {
                 .input('trm', mssql.Numeric(18, 2), this.trm)
                 .input('valor', mssql.Numeric(18, 2), this.valor)
                 .input('usuariocrea', mssql.VarChar(50), this.usuariocrea)
+                .input('seqpago', mssql.Int(), this.seqpago)
                 .execute('sc_detalleforward_crear')
                 .then(() => {
                     resolve({ ok: true, message: 'Registro creado' })
