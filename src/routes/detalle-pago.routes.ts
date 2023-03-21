@@ -2,7 +2,7 @@
 // Imports
 //===============================================================================
 import { Router } from "express";
-import { procesarDetallePago } from "../controllers/detalle-pago.controller";
+import { procesarDetallePago, reversarPago } from "../controllers/detalle-pago.controller";
 import validarJWT from "../middlewares/validar-jwt";
 
 const router = Router();
@@ -12,7 +12,7 @@ const router = Router();
 
 router.post('/', validarJWT, procesarDetallePago);
 
-
+router.delete('/', validarJWT, reversarPago)
 
 //===============================================================================
 // Exports

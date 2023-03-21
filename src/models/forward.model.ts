@@ -174,8 +174,8 @@ export class Forward {
         return new Promise((resolve) => {
             pool.request()
                 .input('nick', mssql.VarChar(50), this.usuariocrea)
-                .input('saldo', mssql.Int(), filtro?.saldo || -1)
-                .input('saldoasignacion', mssql.Int(), filtro?.saldoasignacion || -1)
+                .input('saldo', mssql.Numeric(18,2), filtro?.saldo || -1)
+                .input('saldoasignacion', mssql.Numeric(18,2), filtro?.saldoasignacion || -1)
                 .input('regional', mssql.Int(), filtro?.regional || null)
                 .execute('sc_forward_listar')
                 .then(result => {
@@ -239,8 +239,9 @@ export class Forward {
         try {
             await transaction.request()
                 .input('id', mssql.Int(), detalleForward.idforward)
-                .input('seq', mssql.Int(), detalleForward.seq)
+                .input('seq', mssql.Int(), detalleForward.seqpago)
                 .input('valorpago', mssql.Numeric(18, 2), detalleForward.valor)
+                .input('nick', mssql.VarChar(50), detalleForward.usuariocrea)
                 .execute('sc_forward_actualizarsaldo')
         } catch (error) {
             console.log(error);

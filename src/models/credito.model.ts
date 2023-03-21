@@ -36,6 +36,7 @@ export class Credito {
     usuariomod: string = '';
     fechamod: Date = new Date('1900-01-01');
     amortizacion: Amortizacion[] = [];
+    amortizacion365: Amortizacion[] = [];
     forwards: any[] = [];
     pagos: DetallePago[] = [];
     periodogracia: number = 0;
@@ -68,7 +69,8 @@ export class Credito {
         this.fechacrea = credito?.fechacrea || this.fechacrea;
         this.usuariomod = credito?.usuariomod || this.usuariomod;
         this.fechamod = credito?.fechamod || this.fechamod;
-        this.amortizacion = credito?.amortizacion || this.amortizacion;
+        this.amortizacion = credito?.amortizacion360 || this.amortizacion;
+        this.amortizacion365 = credito?.amortizacion365 || this.amortizacion365;
         this.forwards = credito?.forwards || this.forwards;
         this.pagos = credito?.pagos || this.pagos;
         this.periodogracia = credito?.periodogracia || this.periodogracia;
@@ -183,7 +185,7 @@ export class Credito {
 
     async listar(filtro?: any): Promise<{ ok: boolean, data?: ICredito[], message?: string }> {
         let pool = await dbConnection();
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             pool.request()
                 .input('nick', mssql.VarChar(50), this.usuariocrea)
                 .input('regional', mssql.Int(), filtro?.regional || null)
@@ -268,7 +270,7 @@ export class Credito {
         });
     }
 
-    async simular() {
+    async simular360() {
         let macroeconomico = new MacroEconomicos();
         macroeconomico.tipo = this.indexado.descripcion;
         macroeconomico.fecha = this.fechadesembolso;
@@ -313,7 +315,7 @@ export class Credito {
         }
     }
 
-    async simularTrx(transaction: mssql.Transaction) {
+    async simular360Trx(transaction: mssql.Transaction) {
         let macroeconomico = new MacroEconomicos();
         macroeconomico.tipo = this.indexado.descripcion;
         macroeconomico.fecha = this.fechadesembolso;
@@ -397,7 +399,7 @@ export class Credito {
             let creditosActivos = await this.obtenerCreditosActivos(transaction, params);
             for(let i = 0; i < creditosActivos.length; i++){
                 let credito = (await this.obtenerTrx(transaction, creditosActivos[i].id)).data || new Credito();
-                await credito.simularTrx(transaction);
+                await credito.simular360Trx(transaction);
                 await credito.actualizar(transaction, false);
             }
             await transaction.commit();

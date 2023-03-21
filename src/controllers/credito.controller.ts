@@ -28,7 +28,7 @@ export const actualizar = async (req: Request, res: Response) => {
 
 export const simularCredito = async (req: Request, res: Response) => {
     let credito: Credito = new Credito(req.body);
-    await credito.simular();
+    await credito.simular360();
     return res.status(200).json({ ok: true, data: credito })
 }
 

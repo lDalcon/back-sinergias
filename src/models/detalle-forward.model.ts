@@ -15,6 +15,7 @@ export class DetalleForward {
     usuariomod: string = '';
     fechamod: Date = new Date('1900-01-01');
     seqpago: number = 0;
+    seqid?: number;
 
     constructor(detalleForward?: any) {
         this.seq = detalleForward?.seq || this.seq;
@@ -32,6 +33,7 @@ export class DetalleForward {
         this.usuariomod = detalleForward?.usuariomod || this.usuariomod;
         this.fechamod = detalleForward?.fechamod || this.fechamod;
         this.seqpago = detalleForward?.seqpago || this.seqpago;
+        this.seqid = detalleForward?.seqid;
     }
 
     async guardar(transaction: mssql.Transaction): Promise<{ ok: boolean, message?: any }> {
@@ -53,6 +55,21 @@ export class DetalleForward {
                 .catch(err => {
                     console.log(err);
                     reject({ ok: false, message: err })
+                })
+        })
+    }
+
+    async reversar(transaction: mssql.Transaction, nick: string): Promise<{ ok: boolean, message?: any }> {
+        return new Promise((resolve) => {
+            transaction.request()
+                .input('fecha', mssql.Date(), this.fechapago)
+                .input('seq', mssql.Int(), this.seq)
+                .input('nick', mssql.VarChar(50), nick)
+                .execute('sc_detalleforward_reversar')
+                .then(() => resolve({ ok: true }))
+                .catch(err => {
+                    console.log(err);
+                    resolve({ ok: false, message: err })
                 })
         })
     }

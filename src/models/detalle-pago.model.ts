@@ -6,7 +6,6 @@ import { DetalleForward } from './detalle-forward.model';
 import { Forward } from './forward.model';
 import { CalendarioCierre } from './calendario-cierre.model';
 import { ForwardSaldos } from './forward-saldos.model';
-
 export class DetallePago {
     seq: number = 0;
     ano: number = 0;
@@ -23,6 +22,8 @@ export class DetallePago {
     fechacrea: Date = new Date('1900-01-01');
     usuariomod: string = '';
     fechamod: Date = new Date('1900-01-01');
+    seqid?: number;
+    seqpago?: number;
 
     constructor(detallePago?: any) {
         this.seq = detallePago?.seq || this.seq;
@@ -40,6 +41,8 @@ export class DetallePago {
         this.fechacrea = detallePago?.fechacrea || this.fechacrea;
         this.usuariomod = detallePago?.usuariomod || this.usuariomod;
         this.fechamod = detallePago?.fechamod || this.fechamod;
+        this.seqid = detallePago?.seqid;
+        this.seqpago = detallePago?.seqpago;
     }
 
     async guardar(transaction: mssql.Transaction): Promise<{ ok: boolean, seq?: number, message?: any }> {
@@ -71,16 +74,16 @@ export class DetallePago {
             try {
                 await transaction.begin();
                 let fechaPago: Date = new Date(pagos[0].fechapago);
-                let calendario: CalendarioCierre = new CalendarioCierre({ano: fechaPago.getFullYear(), periodo: fechaPago.getMonth() + 1});
+                let calendario: CalendarioCierre = new CalendarioCierre({ ano: fechaPago.getFullYear(), periodo: fechaPago.getMonth() + 1 });
                 calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
-                if (!calendario.registro ) throw new Error('El mes se encuentra cerrado para registros.');
+                if (!calendario.registro) throw new Error('El mes se encuentra cerrado para registros.');
                 for (let i = 0; i < pagos.length; i++) {
                     pagos[i].usuariocrea = nick;
                     let detallePago: DetallePago = new DetallePago(pagos[i]);
                     let result = await detallePago.guardar(transaction);
                     if (result.seq) pagos[i].seq = result.seq;
                     else throw new Error('Error al obtener el id detalle pago.');
-                    if(detallePago.tipopago === 'Capital') await new Credito().actualizarSaldo(detallePago.idcredito, detallePago.valor, transaction)
+                    if (detallePago.tipopago === 'Capital') await new Credito().actualizarSaldo(detallePago.idcredito, detallePago.valor, transaction)
                     if (detallePago.idforward != 0) {
                         let detalleForward: DetalleForward = new DetalleForward(pagos[i])
                         await detalleForward.guardar(transaction);
@@ -88,11 +91,11 @@ export class DetallePago {
                         await new ForwardSaldos().actualizarByAnoAndPeriodo(transaction, fechaPago.getFullYear(), fechaPago.getMonth() + 1, pagos[i].idforward);
                     }
                 }
-                await new CreditoSaldos().actualizarByAnoAndPeriodo(transaction, fechaPago.getFullYear(), fechaPago.getMonth() + 1, pagos[0].idcredito );
+                await new CreditoSaldos().actualizarByAnoAndPeriodo(transaction, fechaPago.getFullYear(), fechaPago.getMonth() + 1, pagos[0].idcredito);
                 let credito = new Credito();
                 credito.id = pagos[0].idcredito;
                 credito = (await credito.obtener(transaction))?.data || new Credito();
-                if(credito.saldo == 0) await credito.actualizarEstado(transaction, credito.id, 'PAGO');
+                if (credito.saldo == 0) await credito.actualizarEstado(transaction, credito.id, 'PAGO');
                 await transaction.commit();
                 resolve({ ok: true, message: 'Transacciones realizadas' })
             } catch (error) {
@@ -102,4 +105,53 @@ export class DetallePago {
             }
         })
     }
+
+    async procesarReverso(nick: string): Promise<{ ok: boolean, message: any }> {
+        let pool = await dbConnection();
+        let transaction = new mssql.Transaction(pool);
+        return new Promise(async (resolve) => {
+            try {
+                await transaction.begin();
+                let calendario: CalendarioCierre = new CalendarioCierre({ ano: this.fechapago.getFullYear(), periodo: this.fechapago.getMonth() + 1 });
+                calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
+                if (!calendario.registro) throw new Error('El mes se encuentra cerrado para registros.');
+                let result = await this.reversar(transaction, nick)
+                if (!result.ok) throw new Error('Error al reversar detallepago');
+                if (this.tipopago === 'Capital') await new Credito().actualizarSaldo(this.idcredito, this.valor * -1, transaction)
+                if (this.idforward != 0) {
+                    let detalleForward: DetalleForward = new DetalleForward(this)
+                    detalleForward.valor = detalleForward.valor * -1;
+                    detalleForward.usuariocrea = nick;
+                    result = await detalleForward.reversar(transaction, nick);
+                    if (!result.ok) throw new Error('Error al reversar detalleforward');
+                    await new Forward().actualizarSaldo(detalleForward, transaction)
+                    await new ForwardSaldos().actualizarByAnoAndPeriodo(transaction, this.fechapago.getFullYear(), this.fechapago.getMonth() + 1, this.idforward);
+                }
+                result = await new CreditoSaldos().actualizarByAnoAndPeriodo(transaction, this.fechapago.getFullYear(), this.fechapago.getMonth() + 1, this.idcredito);
+                if (!result.ok) throw new Error('Error al actualizar credito_saldos');
+                await transaction.commit();
+                resolve({ ok: true, message: `El pago ${this.seq} fue reversado` })
+            } catch (error) {
+                console.log(error)
+                await transaction.rollback();
+                resolve({ ok: false, message: error?.['message'] })
+            }
+        })
+    }
+
+    async reversar(transaction: mssql.Transaction, nick: string): Promise<{ ok: boolean, message?: any }> {
+        return new Promise((resolve) => {
+            transaction.request()
+                .input('fecha', mssql.Date(), this.fechapago)
+                .input('seq', mssql.Int(), this.seq)
+                .input('nick', mssql.VarChar(50), nick)
+                .execute('sc_deltallepago_reversar')
+                .then(() => resolve({ ok: true }))
+                .catch(err => {
+                    console.log(err);
+                    resolve({ ok: false, message: err })
+                })
+        })
+    }
+
 }
