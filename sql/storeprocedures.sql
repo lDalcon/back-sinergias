@@ -1965,7 +1965,8 @@ CREATE PROCEDURE sc_credito_guardar
 	@tasafija NUMERIC(8,6),
 	@periodogracia INT,
     @amortizacion VARCHAR(MAX),
-    @observaciones NVARCHAR(MAX)
+    @observaciones NVARCHAR(MAX),
+    @idsolicitud INT = -1
 AS
     DECLARE @id INT;
     DECLARE @ano INT = YEAR(@fechadesembolso);
@@ -2002,7 +2003,8 @@ AS
 		@periodogracia,
 		@tasafija,
         @amortizacion,
-        @observaciones
+        @observaciones,
+        @idsolicitud
     )
 
     EXEC sc_credito_saldos_actualizar @ano, @periodo, @id

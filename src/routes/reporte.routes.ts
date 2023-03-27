@@ -2,7 +2,7 @@
 // Imports
 //===============================================================================
 import { Router } from "express";
-import { diferenciaCambio, reporteConsolidado } from "../controllers/reporte.controler";
+import { diferenciaCambio, infoRegistroSolicitud, reporteConsolidado } from "../controllers/reporte.controler";
 import validarJWT from "../middlewares/validar-jwt";
 
 const router = Router();
@@ -11,6 +11,8 @@ const router = Router();
 //===============================================================================
 
 router.get('/', validarJWT, reporteConsolidado);
+
+router.get('/infoRegistroSolicitud/:regional', validarJWT, infoRegistroSolicitud)
 
 router.post('/diferenciacambio', validarJWT, diferenciaCambio)
 

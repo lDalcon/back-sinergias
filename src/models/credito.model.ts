@@ -42,6 +42,7 @@ export class Credito {
     periodogracia: number = 0;
     aumentocapital: AumentoCapital[] = [];
     observaciones: string = '';
+    idsolicitud: number = -1;
 
     constructor(credito?: any) {
         this.id = credito?.id || this.id;
@@ -76,6 +77,7 @@ export class Credito {
         this.periodogracia = credito?.periodogracia || this.periodogracia;
         this.aumentocapital = credito?.aumentocapital || this.aumentocapital;
         this.observaciones = credito?.observaciones || this.observaciones;
+        this.idsolicitud = credito?.idsolicitud || this.idsolicitud;
     }
 
     async guardar(transaction?: mssql.Transaction) {
@@ -113,6 +115,7 @@ export class Credito {
                 .input('periodogracia', mssql.Int(), this.periodogracia)
                 .input('amortizacion', mssql.VarChar(mssql.MAX), JSON.stringify({ amortizacion: this.amortizacion }))
                 .input('observaciones', mssql.NVarChar(mssql.MAX), this.observaciones)
+                .input('idsolicitud', mssql.Int(), this.idsolicitud)
                 .execute('sc_credito_guardar')
             if (!isTrx) {
                 transaction.commit();
@@ -397,17 +400,17 @@ export class Credito {
         try {
             await transaction.begin();
             let creditosActivos = await this.obtenerCreditosActivos(transaction, params);
-            for(let i = 0; i < creditosActivos.length; i++){
+            for (let i = 0; i < creditosActivos.length; i++) {
                 let credito = (await this.obtenerTrx(transaction, creditosActivos[i].id)).data || new Credito();
                 await credito.simular360Trx(transaction);
                 await credito.actualizar(transaction, false);
             }
             await transaction.commit();
-            return {ok: true, message: 'Proceso realizado'}
+            return { ok: true, message: 'Proceso realizado' }
         } catch (error) {
             console.log(error)
             await transaction.rollback();
-            return {ok: false, message: 'Error al procesar Actualización'}
+            return { ok: false, message: 'Error al procesar Actualización' }
         }
     }
 

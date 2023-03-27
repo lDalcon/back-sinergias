@@ -28,3 +28,13 @@ export const diferenciaCambio = async (req: Request, res: Response) => {
         })
         .catch(err => res.status(500).json({ ok: false, message: err }))
 }
+
+export const infoRegistroSolicitud = async (req: Request, res: Response) => {
+    let reporte = new Reporte();
+    await reporte.infoRegistroSolicitud(+req.params['regional'])
+        .then(result => {
+            if (!result.ok) return res.status(400).json(result);
+            return res.status(200).json(result)
+        })
+        .catch(err => res.status(500).json({ ok: false, message: err }))
+}

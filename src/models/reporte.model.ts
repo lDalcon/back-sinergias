@@ -78,7 +78,24 @@ export class Reporte {
             .input('nick', mssql.VarChar(50), parametros?.nick || null)
             .input('nit', mssql.VarChar(15), parametros?.nit || null)
             .execute('sc_dc_consolidado')
-        
+    }
+
+    async infoRegistroSolicitud(regional: number): Promise<{ ok: boolean, data?: any, message?: any }> {
+        let pool = await dbConnection();
+        return new Promise((resolve) => {
+            pool.request()
+                .input('regional', mssql.Int(), regional)
+                .execute('sc_reporte_infoRegistroSolicitud')
+                .then(result => {
+                    pool.close();
+                    resolve({ ok: true, data: result.recordset })
+                })
+                .catch(err => {
+                    console.log(err);
+                    pool.close();
+                    resolve({ ok: false, message: err })
+                })
+        });
     }
 }
 

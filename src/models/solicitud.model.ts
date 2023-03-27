@@ -1,5 +1,7 @@
 import mssql from 'mssql';
 import dbConnection from '../config/database';
+import sendEmailNotification from '../helpers/notificacion';
+import { EmailNotification } from './email-notification.model';
 import { Regional } from './regional.model';
 import { ValorCatalogo } from './valor-catalogo.model';
 
@@ -59,25 +61,39 @@ export class Solicitud {
     async guardar(): Promise<{ ok: boolean, message?: any, data?: any }> {
         return new Promise(async (resolve) => {
             let pool = await dbConnection();
-            pool.request()
-                .input('fechareq', mssql.Date(), this.fechareq)
-                .input('moneda', mssql.Int(), this.moneda.id)
-                .input('regional', mssql.Int(), this.regional.id)
-                .input('capital', mssql.Numeric(18, 2), this.capital)
-                .input('plazo', mssql.Int(), this.plazo)
-                .input('observaciones', mssql.NVarChar(mssql.MAX), this.observaciones)
-                .input('usuariocrea', mssql.VarChar(50), this.usuariocrea)
-                .output('id', mssql.Int())
-                .execute('sc_solicitud_guardar')
-                .then(result => {
+            try {
+                let result = await pool.request()
+                    .input('fechareq', mssql.Date(), this.fechareq)
+                    .input('moneda', mssql.Int(), this.moneda.id)
+                    .input('regional', mssql.Int(), this.regional.id)
+                    .input('capital', mssql.Numeric(18, 2), this.capital)
+                    .input('plazo', mssql.Int(), this.plazo)
+                    .input('observaciones', mssql.NVarChar(mssql.MAX), this.observaciones)
+                    .input('usuariocrea', mssql.VarChar(50), this.usuariocrea)
+                    .output('id', mssql.Int())
+                    .execute('sc_solicitud_guardar')
+                if (result.output) {
+                    const formatter = new Intl.NumberFormat('en-US', {
+                        style: 'currency',
+                        currency: 'USD',
+                        minimumFractionDigits: 2
+                    });
+                    let notification = new EmailNotification(
+                        { name: 'Damian Duarte', email: 'damianleo1991@hotmail.com' },
+                        [{ name: 'Damian Duarte', email: 'tecnologia@grupodespensa.co' }],
+                        `Solicitud ${result.output['id']}`,
+                        `<html><head></head><body><p>Se registro la solicitud # ${result.output['id']} para la compañia ${this.regional.nombre} por valor de ${this.moneda.config.prefix} ${formatter.format(this.capital)}</p></body></html>`)
+                    let respNotification = await sendEmailNotification(notification);
+                    let resp = { ok: true, message: '' };
+                    if (respNotification.ok) resp.message = `La solicitud ${result.output['id']} fue registrada y notificada a los destinatarios`
+                    else resp.message = `La solicitud ${result.output['id']} fue registrada, pero no pudo ser notificada`
                     pool.close();
-                    resolve({ ok: true, message: `Solicitud registrada (${result.output['id']})` })
-                })
-                .catch(err => {
-                    console.log(err);
-                    pool.close();
-                    resolve({ ok: false, message: err })
-                })
+                    resolve(resp);
+                }
+            } catch (error) {
+                pool.close();
+                resolve({ ok: false, message: error })
+            }
         })
     }
 
