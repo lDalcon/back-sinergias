@@ -11,20 +11,12 @@ export class Solicitud {
     periodo: number = 0;
     fechareq: Date = new Date('1900-01-01');
     moneda: ValorCatalogo = new ValorCatalogo();
-    entfinanciera?: ValorCatalogo;
     regional: Regional = new Regional();
-    lineacredito?: ValorCatalogo;
-    tipogarantia?: ValorCatalogo;
     capital: number = 0;
+    desembolso: number = 0;
+    desistido: number = 0;
     plazo: number = 0;
-    indexado?: ValorCatalogo;
-    spread: number = 0;
-    tasa: number = 0;
-    tipointeres?: ValorCatalogo;
-    amortizacionk?: ValorCatalogo;
-    amortizacionint?: ValorCatalogo;
     observaciones: string = '';
-    idcredito: number = -1;
     estado: string = '';
     usuariocrea: string = '';
     fechacrea: Date = new Date('1900-01-01');
@@ -37,20 +29,12 @@ export class Solicitud {
         this.periodo = solicitud?.periodo || this.periodo;
         this.fechareq = solicitud?.fechareq || this.fechareq;
         this.moneda = new ValorCatalogo(solicitud?.moneda) || this.moneda;
-        this.entfinanciera = new ValorCatalogo(solicitud?.entfinanciera) || this.entfinanciera;
         this.regional = new Regional(solicitud?.regional) || this.regional;
-        this.lineacredito = new ValorCatalogo(solicitud?.lineacredito) || this.lineacredito;
-        this.tipogarantia = new ValorCatalogo(solicitud?.tipogarantia) || this.tipogarantia;
         this.capital = solicitud?.capital || this.capital;
+        this.desembolso = solicitud?.desembolso || this.desembolso;
+        this.desistido = solicitud?.desistido || this.desistido;
         this.plazo = solicitud?.plazo || this.plazo;
-        this.indexado = new ValorCatalogo(solicitud?.indexado) || this.indexado;
-        this.spread = solicitud?.spread || this.spread;
-        this.tasa = solicitud?.tasa || this.tasa;
-        this.tipointeres = new ValorCatalogo(solicitud?.tipointeres) || this.tipointeres;
-        this.amortizacionk = new ValorCatalogo(solicitud?.amortizacionk) || this.amortizacionk;
-        this.amortizacionint = new ValorCatalogo(solicitud?.amortizacionint) || this.amortizacionint;
         this.observaciones = solicitud?.observaciones || this.observaciones;
-        this.idcredito = solicitud?.idcredito || this.idcredito;
         this.estado = solicitud?.estado || this.estado;
         this.usuariocrea = solicitud?.usuariocrea || this.usuariocrea;
         this.fechacrea = solicitud?.fechacrea || this.fechacrea;
@@ -80,7 +64,7 @@ export class Solicitud {
                     });
                     let notification = new EmailNotification(
                         { name: 'Damian Duarte', email: 'damianleo1991@hotmail.com' },
-                        [{ name: 'Damian Duarte', email: 'tecnologia@grupodespensa.co' }],
+                        [{ name: 'Damian Duarte', email: 'tecnologia@grupodespensa.co' }, { name: 'Daniel Bossa', email: 'danielbossa@italcol.com' }],
                         `Solicitud ${result.output['id']}`,
                         `<html><head></head><body><p>Se registro la solicitud # ${result.output['id']} para la compañia ${this.regional.nombre} por valor de ${this.moneda.config.prefix} ${formatter.format(this.capital)}</p></body></html>`)
                     let respNotification = await sendEmailNotification(notification);

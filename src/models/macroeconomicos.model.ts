@@ -52,4 +52,41 @@ export class MacroEconomicos {
                 })
         });
     }
+
+    async getTasaUVR(fechaDesembolso: Date, fechaPeriodo: Date): Promise<number>{
+        let pool = await dbConnection();
+        return new Promise((resolve) => {
+            pool.request()
+                .input('fechaDesembolso', mssql.Date(), fechaDesembolso)
+                .input('fechaPeriodo', mssql.Date(), fechaPeriodo)
+                .output('tasa', mssql.Numeric(18,6))
+                .execute('sc_getTasaUVR')
+                .then(result => {
+                    pool.close();
+                    resolve(+result.output['tasa']);
+                })
+                .catch(err => {
+                    pool.close();
+                    console.log(err);
+                    resolve(-1)
+                })
+        });
+    }
+
+    async getTasaUVRTrx(transaction: mssql.Transaction, fechaDesembolso: Date, fechaPeriodo: Date): Promise<number>{
+        return new Promise((resolve) => {
+            transaction.request()
+                .input('fechaDesembolso', mssql.Date(), fechaDesembolso)
+                .input('fechaPeriodo', mssql.Date(), fechaPeriodo)
+                .output('tasa', mssql.Numeric(18,6))
+                .execute('sc_getTasaUVR')
+                .then(result => {
+                    resolve(+result.output['tasa']);
+                })
+                .catch(err => {
+                    console.log(err);
+                    resolve(-1)
+                })
+        });
+    }
 }

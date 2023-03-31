@@ -36,7 +36,6 @@ export class Credito {
     usuariomod: string = '';
     fechamod: Date = new Date('1900-01-01');
     amortizacion: Amortizacion[] = [];
-    amortizacion365: Amortizacion[] = [];
     forwards: any[] = [];
     pagos: DetallePago[] = [];
     periodogracia: number = 0;
@@ -71,7 +70,6 @@ export class Credito {
         this.usuariomod = credito?.usuariomod || this.usuariomod;
         this.fechamod = credito?.fechamod || this.fechamod;
         this.amortizacion = credito?.amortizacion360 || this.amortizacion;
-        this.amortizacion365 = credito?.amortizacion365 || this.amortizacion365;
         this.forwards = credito?.forwards || this.forwards;
         this.pagos = credito?.pagos || this.pagos;
         this.periodogracia = credito?.periodogracia || this.periodogracia;
@@ -273,12 +271,13 @@ export class Credito {
         });
     }
 
-    async simular360() {
+    async simular365() {
         let macroeconomico = new MacroEconomicos();
         macroeconomico.tipo = this.indexado.descripcion;
         macroeconomico.fecha = this.fechadesembolso;
         let tasa: number = 0;
         if (this.indexado.descripcion == 'TASA FIJA') tasa = this.tasa;
+        else if (this.indexado.descripcion == 'UVR') tasa = await macroeconomico.getTasaUVR(this.fechadesembolso, this.fechadesembolso)
         else tasa = (await macroeconomico.getByDateAndType())?.macroeconomicos?.valor || 0;
         let spreadEA: number = this.convertirTasaEA(this.spread, this.tipointeres.config);
         this.amortizacion = [];
@@ -296,7 +295,7 @@ export class Credito {
             actualizaIdx: false
         })
         for (let i = 1; i <= this.plazo; i++) {
-            let fechaPeriodo: Date = new Date(new Date(this.amortizacion[i - 1].fechaPeriodo).setDate(this.amortizacion[i - 1].fechaPeriodo.getDate() + 30))
+            let fechaPeriodo: Date = new Date(new Date(this.fechadesembolso).setMonth(this.fechadesembolso.getMonth() + i));
             let amortizacion = new Amortizacion();
             amortizacion.nper = i;
             amortizacion.fechaPeriodo = fechaPeriodo;
@@ -313,17 +312,19 @@ export class Credito {
             if (this.amortizacionint.config.nper != -1 && i % this.amortizacionint.config.nper === 0) {
                 macroeconomico.fecha = fechaPeriodo;
                 if (this.indexado.descripcion == 'TASA FIJA') tasa = this.tasa;
+                else if (this.indexado.descripcion == 'UVR') tasa = await macroeconomico.getTasaUVR(this.fechadesembolso, fechaPeriodo)
                 else tasa = (await macroeconomico.getByDateAndType())?.macroeconomicos?.valor || 0;
             }
         }
     }
 
-    async simular360Trx(transaction: mssql.Transaction) {
+    async simular365Trx(transaction: mssql.Transaction) {
         let macroeconomico = new MacroEconomicos();
         macroeconomico.tipo = this.indexado.descripcion;
         macroeconomico.fecha = this.fechadesembolso;
         let tasa: number = 0;
         if (this.indexado.descripcion == 'TASA FIJA') tasa = this.tasa;
+        else if (this.indexado.descripcion == 'UVR') tasa = await macroeconomico.getTasaUVRTrx(transaction, this.fechadesembolso, this.fechadesembolso)
         else tasa = (await macroeconomico.getByDateAndTypeTrx(transaction))?.macroeconomicos?.valor || 0;
         let spreadEA: number = this.convertirTasaEA(this.spread, this.tipointeres.config);
         this.amortizacion = [];
@@ -358,6 +359,7 @@ export class Credito {
             if (this.amortizacionint.config.nper != -1 && i % this.amortizacionint.config.nper === 0) {
                 macroeconomico.fecha = fechaPeriodo;
                 if (this.indexado.descripcion == 'TASA FIJA') tasa = this.tasa;
+                else if (this.indexado.descripcion == 'UVR') tasa = await macroeconomico.getTasaUVRTrx(transaction, this.fechadesembolso, this.fechadesembolso)
                 else tasa = (await macroeconomico.getByDateAndTypeTrx(transaction))?.macroeconomicos?.valor || 0;
             }
         }
@@ -402,7 +404,7 @@ export class Credito {
             let creditosActivos = await this.obtenerCreditosActivos(transaction, params);
             for (let i = 0; i < creditosActivos.length; i++) {
                 let credito = (await this.obtenerTrx(transaction, creditosActivos[i].id)).data || new Credito();
-                await credito.simular360Trx(transaction);
+                await credito.simular365Trx(transaction);
                 await credito.actualizar(transaction, false);
             }
             await transaction.commit();
