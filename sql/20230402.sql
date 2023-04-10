@@ -12,6 +12,7 @@ CREATE TABLE [dbo].[cuentasbancarias] (
     entfinanciera INT NOT NULL,
     ncuenta VARCHAR(100) NOT NULL,
     moneda INT NOT NULL,
+    fechaapertura DATE,
     estado BIT,
     PRIMARY KEY (id),
     FOREIGN KEY (regional) REFERENCES regional(id),
@@ -20,6 +21,30 @@ CREATE TABLE [dbo].[cuentasbancarias] (
     FOREIGN KEY (moneda) REFERENCES valorcatalogo(id),
     CONSTRAINT u_cuenta UNIQUE (ncuenta, entfinanciera)
 )
+
+IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_cuentasbancarias_crear') 
+	DROP PROCEDURE [dbo].[sc_cuentasbancarias_crear]
+GO
+
+CREATE PROCEDURE sc_cuentasbancarias_crear
+    @regional INT,
+    @tipocuenta INT,
+    @entfinanciera INT,
+    @ncuenta VARCHAR(100),
+    @moneda INT,
+    @fechaapertura DATE
+AS
+    INSERT INTO cuentasbancarias VALUES
+        (
+            @regional,
+            @tipocuenta,
+            @entfinanciera,
+            @ncuenta,
+            @moneda,
+            @fechaapertura,
+            1
+        )
+GO
 
 IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[saldosdiario]') AND type in (N'U'))
 	DROP TABLE [dbo].[saldosdiario]
@@ -34,7 +59,6 @@ CREATE TABLE [dbo].[saldosdiario] (
     fechacrea DATETIME NOT NULL,
     usuariomod VARCHAR(50),
     fechamod DATETIME NOT NULL,
-    FOREIGN KEY (idcuenta) REFERENCES cuentasbancarias(id),
     FOREIGN KEY (usuariocrea) REFERENCES usuarios(nick),
     FOREIGN KEY (usuariomod) REFERENCES usuarios(nick),
 )
@@ -82,52 +106,28 @@ CREATE PROCEDURE sc_saldosdiario_listar
     @fechainicial DATE,
     @fechafinal DATE,
     @nick VARCHAR(50),
-    @regional INT = NULL
+    @regional INT
 AS
-	DELETE listafechas
-	WHILE @fechaInicial <= @fechaFinal
-		BEGIN
-			INSERT INTO listafechas VALUES (@fechaInicial);
-			SET @fechaInicial = DATEADD(DAY, 1, @fechaInicial);
-		END
+    DELETE listafechas
+    WHILE @fechaInicial <= @fechaFinal
+        BEGIN
+            INSERT INTO listafechas 
+            VALUES (
+                @fechaInicial, 
+                (SELECT COUNT(*) FROM cuentasbancarias WHERE regional = @regional AND fechaapertura <= @fechainicial), 
+                (SELECT COUNT(*) FROM cuentasbancarias INNER JOIN saldosdiario ON cuentasbancarias.id = saldosdiario.idcuenta AND saldosdiario.fecha = @fechainicial WHERE regional = @regional AND fechaapertura <= @fechainicial), 
+                ''
+                );
+            SET @fechaInicial = DATEADD(DAY, 1, @fechaInicial);
+        END
 
-    SELECT
-        cuentasbancarias.id [idcuenta], 
-		regional.nombre [regional],
-        entfinanciera.descripcion [entfinanciera],
-        tipocuenta.descripcion [tipocuenta],
-        cuentasbancarias.ncuenta [ncuenta],
-        moneda.descripcion [moneda.descripcion],
-		JSON_QUERY(moneda.config) [moneda.config],
-		(
-			SELECT
-				listafechas.fecha,
-				ISNULL(saldosdiario.valor, 0) valor
-			FROM
-				listafechas
-
-				LEFT JOIN saldosdiario
-				ON listafechas.fecha = saldosdiario.fecha
-				AND cuentasbancarias.id = saldosdiario.idcuenta
-			FOR JSON PATH
-		) [detalle]
-    FROM
-        cuentasbancarias
-
-        INNER JOIN valorcatalogo AS entfinanciera
-        ON cuentasbancarias.entfinanciera = entfinanciera.id
-
-        INNER JOIN valorcatalogo AS tipocuenta
-        ON cuentasbancarias.tipocuenta = tipocuenta.id
-
-        INNER JOIN valorcatalogo AS moneda
-        ON cuentasbancarias.moneda = moneda.id
-
-        INNER JOIN regional
-        ON cuentasbancarias.regional = regional.id
-    WHERE
-		regional.id in (SELECT usuario_regional.idregional FROM usuario_regional WHERE usuario_regional.nick = @nick AND usuario_regional.idregional = ISNULL(@regional, usuario_regional.idregional))
-	FOR JSON PATH
+    UPDATE listafechas 
+    SET estado = CASE 
+	WHEN ndatos = 0 THEN 'PENDIENTE'
+	WHEN ncuentas = ndatos THEN 'OK'
+	ELSE 'PARCIAL' END
+    
+    SELECT * FROM listafechas FOR JSON PATH
 GO
 
 UPDATE menu SET opciones = '[{"items":[{"icon":"pi pi-fw pi-user","label":"Usuarios","routerLink":["/admin/usuarios"]},{"icon":"pi pi-fw pi-calendar","label":"Calendario","routerLink":["/admin/calendario"]}],"label":"Admin"},{"items":[{"icon":"pi pi-fw pi-chart-pie","label":"Gerencial","routerLink":["/dashboard/gerencia"]},{"icon":"pi pi-fw pi-chart-bar","label":"Financiero","routerLink":["/dashboard/financiero"]}],"label":"Dashboard"},{"items":[{"icon":"pi pi-fw pi-file","label":"Solicitudes","routerLink":["/financiero/solicitudes"]},{"icon":"pi pi-fw pi-credit-card","label":"Obligaciones","routerLink":["/financiero/obligaciones"]},{"icon":"pi pi-fw pi-dollar","label":"Forward","routerLink":["/financiero/forward"]},{"icon":"pi pi-fw pi-wallet","label":"Dif. en Cambio","routerLink":["/financiero/diferenciacambio"]},{"icon":"pi pi-fw pi-wallet","label":"Saldos Diarios","routerLink":["/financiero/saldosdiario"]}],"label":"Financiero"}]'
@@ -148,25 +148,66 @@ INSERT INTO valorcatalogo VALUES
 ('TIPCUE', 'OTRA', '{}')
 
 INSERT INTO cuentasbancarias VALUES
-('112', '610', '502', '30910000024-4', '500',  '1'),
-('112', '610', '509', '03931656-7', '500',  '1'),
-('112', '609', '509', '39319470', '500',  '1'),
-('112', '610', '523', '21125254754', '500',  '1'),
-('112', '610', '506', '7369997924', '500',  '1'),
-('112', '609', '506', '00730045081-9', '500',  '1'),
-('112', '612', '607', '1-143835-8', '500',  '1'),
-('112', '609', '502', '4-0910-3-007890', '500',  '1'),
-('112', '610', '502', '06011-002324-3', '500',  '1'),
-('112', '610', '509', '157-32608-3', '500',  '1'),
-('112', '610', '523', '3001-020694-3', '500',  '1'),
-('112', '610', '526', '197-28612-3', '500',  '1'),
-('112', '610', '514', '655-03724-0', '500',  '1'),
-('112', '609', '506', '0460-0048482-7', '500',  '1')
+('112', '610', '502', '30910000024-4', '501', '2023-01-01', '1'),
+('112', '610', '509', '03931656-7', '500', '2023-01-01',  '1'),
+('112', '609', '509', '39319470', '500', '2023-01-01',  '1'),
+('112', '610', '523', '21125254754', '500', '2023-01-01',  '1'),
+('112', '610', '506', '7369997924', '500', '2023-01-01',  '1'),
+('112', '609', '506', '00730045081-9', '500', '2023-01-01',  '1'),
+('112', '612', '607', '1-143835-8', '500', '2023-01-01',  '1'),
+('112', '609', '502', '4-0910-3-007890', '500', '2023-01-01',  '1'),
+('112', '610', '502', '06011-002324-3', '500', '2023-01-01',  '1'),
+('112', '610', '509', '157-32608-3', '500', '2023-01-01',  '1'),
+('112', '610', '523', '3001-020694-3', '500', '2023-01-01',  '1'),
+('112', '610', '526', '197-28612-3', '500', '2023-03-01',  '1'),
+('112', '610', '514', '655-03724-0', '500', '2023-01-01',  '1'),
+('112', '609', '506', '0460-0048482-7', '500', '2023-02-01',  '1')
 
 IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[listafechas]') AND type in (N'U'))
 	DROP TABLE [dbo].[listafechas]
 GO
 
 CREATE TABLE listafechas (
-    fecha DATE
+    fecha DATE,
+    ncuentas INT,
+    ndatos INT,
+    estado VARCHAR(10)
 )
+GO
+
+IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_saldosdiario_listardia') 
+	DROP PROCEDURE [dbo].[sc_saldosdiario_listardia]
+GO
+
+CREATE PROCEDURE sc_saldosdiario_listardia
+    @fecha DATE,
+    @regional INT
+AS
+    SELECT 
+        cuentasbancarias.id [idcuenta],
+        entfinanciera.descripcion [entfinanciera],
+        tipocuenta.descripcion [tipocuenta],
+        cuentasbancarias.ncuenta [ncuenta],
+        JSON_QUERY(moneda.config) [moneda],
+        @fecha [fecha],
+        NULL [valor]
+    FROM 
+        cuentasbancarias
+
+        INNER JOIN valorcatalogo AS entfinanciera
+        ON cuentasbancarias.entfinanciera = entfinanciera.id
+
+        INNER JOIN valorcatalogo AS moneda
+        ON cuentasbancarias.moneda = moneda.id
+
+        INNER JOIN valorcatalogo AS tipocuenta
+        ON cuentasbancarias.tipocuenta = tipocuenta.id
+
+    WHERE
+        cuentasbancarias.regional = @regional
+        AND @fecha <= CAST(GETDATE() AS DATE)
+        AND cuentasbancarias.fechaapertura <= @fecha
+        AND cuentasbancarias.estado = 1
+        AND NOT EXISTS ( SELECT * FROM saldosdiario WHERE saldosdiario.fecha = @fecha AND cuentasbancarias.id = saldosdiario.idcuenta)
+    FOR JSON PATH, INCLUDE_NULL_VALUES
+GO

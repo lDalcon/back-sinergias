@@ -69,4 +69,43 @@ export class SaldosDiario {
         });
     }
 
+    async listarDia(params: any): Promise<{ ok: boolean, data?: any[], message?: string }>  {
+        let pool = await dbConnection();
+        return new Promise((resolve) => {
+            pool.request()
+                .input('fecha', mssql.Date(), params.fecha)
+                .input('regional', mssql.VarChar(20), params.regional)
+                .execute('sc_saldosdiario_listardia')
+                .then(result => {
+                    pool.close();
+                    resolve({ ok: true, data: result.recordset[0] })
+                })
+                .catch(err => {
+                    console.log(err);
+                    pool.close();
+                    resolve({ ok: false, message: err })
+                })
+        });
+    }
+
+    async procesar( saldosdiario: SaldosDiario[], nick: string): Promise<{ ok: boolean, message?: any }>{
+        let pool = await dbConnection();
+        let transaction = new mssql.Transaction(pool);
+        try {
+            await transaction.begin();
+            for(let i = 0; i < saldosdiario.length; i++){
+                saldosdiario[i].usuariocrea = nick;
+                let saldo = new SaldosDiario(saldosdiario[i])
+                let res = await saldo.guardar(transaction);
+                if (!res.ok) throw new Error('Error al procesar saldo');
+            }
+            await transaction.commit();
+            pool.close()
+            return { ok: true, message: 'Proceso exitoso.'}
+        } catch (error) {
+            await transaction.rollback();
+            pool.close()
+            return { ok: false, message: error}
+        }
+    }
 }
