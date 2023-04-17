@@ -32,8 +32,6 @@ export const procesarSaldosDiaro = async (req: Request, res: Response) => {
 
 export const listarSaldos = async (req: Request, res: Response) => {
     let saldosdiario: SaldosDiario = new SaldosDiario();
-    let usuario: Usuario = req['usrtoken']
-    saldosdiario.usuariocrea = usuario.nick;
     saldosdiario.listar(req.query)
         .then(result => {
             if (!result.ok) return res.status(400).json(result);

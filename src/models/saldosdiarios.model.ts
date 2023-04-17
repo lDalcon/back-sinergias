@@ -22,7 +22,7 @@ export class SaldosDiario {
         this.fechamod = saldosdiario?.fechamod || this.fechamod;
     }
 
-    async guardar(transaction?: mssql.Transaction) : Promise<{ ok: boolean, message?: string }>{
+    async guardar(transaction?: mssql.Transaction): Promise<{ ok: boolean, message?: string }> {
         let isTrx: boolean = true;
         let pool = await dbConnection();
         if (!transaction) {
@@ -30,7 +30,7 @@ export class SaldosDiario {
             isTrx = false;
         }
         try {
-            if(!isTrx) await transaction.begin()
+            if (!isTrx) await transaction.begin()
             await new mssql.Request(transaction)
                 .input('idcuenta', mssql.Int(), this.idcuenta)
                 .input('fecha', mssql.Date(), this.fecha)
@@ -48,17 +48,17 @@ export class SaldosDiario {
         }
     }
 
-    async listar(params: any): Promise<{ ok: boolean, data?: any[], message?: string }>  {
+    async listar(params: any): Promise<{ ok: boolean, data?: any[], message?: string }> {
         let pool = await dbConnection();
         return new Promise((resolve) => {
             pool.request()
                 .input('fechainicial', mssql.Date(), params.fechainicial)
                 .input('fechafinal', mssql.Date(), params.fechafinal)
-                .input('nick', mssql.VarChar(20), this.usuariocrea)
-                .input('regional', mssql.VarChar(20), params?.regional || null)
+                .input('regional', mssql.VarChar(20), params.regional)
                 .execute('sc_saldosdiario_listar')
                 .then(result => {
                     pool.close();
+                    if(!result.recordset[0]) resolve({ok: false, message: 'No existen cuentas por diligenciar.'});
                     resolve({ ok: true, data: result.recordset[0] })
                 })
                 .catch(err => {
@@ -69,7 +69,7 @@ export class SaldosDiario {
         });
     }
 
-    async listarDia(params: any): Promise<{ ok: boolean, data?: any[], message?: string }>  {
+    async listarDia(params: any): Promise<{ ok: boolean, data?: any[], message?: string }> {
         let pool = await dbConnection();
         return new Promise((resolve) => {
             pool.request()
@@ -88,12 +88,12 @@ export class SaldosDiario {
         });
     }
 
-    async procesar( saldosdiario: SaldosDiario[], nick: string): Promise<{ ok: boolean, message?: any }>{
+    async procesar(saldosdiario: SaldosDiario[], nick: string): Promise<{ ok: boolean, message?: any }> {
         let pool = await dbConnection();
         let transaction = new mssql.Transaction(pool);
         try {
             await transaction.begin();
-            for(let i = 0; i < saldosdiario.length; i++){
+            for (let i = 0; i < saldosdiario.length; i++) {
                 saldosdiario[i].usuariocrea = nick;
                 let saldo = new SaldosDiario(saldosdiario[i])
                 let res = await saldo.guardar(transaction);
@@ -101,11 +101,11 @@ export class SaldosDiario {
             }
             await transaction.commit();
             pool.close()
-            return { ok: true, message: 'Proceso exitoso.'}
+            return { ok: true, message: 'Proceso exitoso.' }
         } catch (error) {
             await transaction.rollback();
             pool.close()
-            return { ok: false, message: error}
+            return { ok: false, message: error }
         }
     }
 }

@@ -171,8 +171,43 @@ CREATE TABLE listafechas (
     fecha DATE,
     ncuentas INT,
     ndatos INT,
+    saldocop NUMERIC(18,2),
+    saldousd NUMERIC(18,2),
     estado VARCHAR(10)
 )
+GO
+
+IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_saldosdiario_listar') 
+	DROP PROCEDURE [dbo].[sc_saldosdiario_listar]
+GO
+
+CREATE PROCEDURE [dbo].[sc_saldosdiario_listar]
+    @fechaInicial DATE,
+	@fechaFinal DATE,
+    @regional INT
+AS
+    DELETE listafechas
+    WHILE @fechaInicial <= @fechaFinal AND @fechaInicial < CAST(GETDATE() AS DATE)
+        BEGIN
+            INSERT INTO listafechas 
+            VALUES (
+                @fechaInicial, 
+                (SELECT COUNT(*) FROM cuentasbancarias WHERE regional = @regional AND fechaapertura <= @fechainicial), 
+                (SELECT COUNT(*) FROM cuentasbancarias INNER JOIN saldosdiario ON cuentasbancarias.id = saldosdiario.idcuenta AND saldosdiario.fecha = @fechainicial WHERE regional = @regional AND fechaapertura <= @fechainicial), 
+				(SELECT ISNULL(SUM(saldosdiario.valor),0) FROM cuentasbancarias INNER JOIN saldosdiario ON cuentasbancarias.id = saldosdiario.idcuenta AND cuentasbancarias.moneda = 500 AND saldosdiario.fecha = @fechainicial WHERE regional = @regional AND fechaapertura <= @fechainicial),
+				(SELECT ISNULL(SUM(saldosdiario.valor),0) FROM cuentasbancarias INNER JOIN saldosdiario ON cuentasbancarias.id = saldosdiario.idcuenta AND cuentasbancarias.moneda = 501 AND saldosdiario.fecha = @fechainicial WHERE regional = @regional AND fechaapertura <= @fechainicial),
+                ''
+                );
+            SET @fechaInicial = DATEADD(DAY, 1, @fechaInicial);
+        END
+
+    UPDATE listafechas 
+    SET estado = CASE 
+	WHEN ndatos = 0 THEN 'PENDIENTE'
+	WHEN ncuentas = ndatos THEN 'OK'
+	ELSE 'PARCIAL' END
+    
+    SELECT * FROM listafechas FOR JSON PATH
 GO
 
 IF EXISTS (SELECT * FROM sysobjects WHERE name='sc_saldosdiario_listardia') 
@@ -205,7 +240,7 @@ AS
 
     WHERE
         cuentasbancarias.regional = @regional
-        AND @fecha <= CAST(GETDATE() AS DATE)
+        AND @fecha < CAST(GETDATE() AS DATE)
         AND cuentasbancarias.fechaapertura <= @fecha
         AND cuentasbancarias.estado = 1
         AND NOT EXISTS ( SELECT * FROM saldosdiario WHERE saldosdiario.fecha = @fecha AND cuentasbancarias.id = saldosdiario.idcuenta)

@@ -7,24 +7,24 @@ export class CuentaBancaria {
     id: number = 0
     regional: Regional = new Regional();
     tipocuenta: ValorCatalogo = new ValorCatalogo();
-    entfinancienta: ValorCatalogo = new ValorCatalogo();
+    entfinanciera: ValorCatalogo = new ValorCatalogo();
     ncuenta: string = '';
     moneda: ValorCatalogo = new ValorCatalogo();
     fechaapertura: Date = new Date('1900-01-01');
     estado: boolean = true;
 
-    constructor(cuentabancaria?: any){
+    constructor(cuentabancaria?: any) {
         this.id = cuentabancaria?.id || this.id;
         this.regional = new Regional(cuentabancaria?.regional) || this.regional;
         this.tipocuenta = new ValorCatalogo(cuentabancaria?.tipocuenta) || this.tipocuenta;
-        this.entfinancienta = new ValorCatalogo(cuentabancaria?.entfinancienta) || this.entfinancienta;
-        this.ncuenta = cuentabancaria?.ncuenta || this.ncuenta ;
+        this.entfinanciera = new ValorCatalogo(cuentabancaria?.entfinanciera) || this.entfinanciera;
+        this.ncuenta = cuentabancaria?.ncuenta || this.ncuenta;
         this.moneda = new ValorCatalogo(cuentabancaria?.moneda) || this.moneda;
-        this.fechaapertura = cuentabancaria?.fechaapertura || this.fechaapertura   ;
+        this.fechaapertura = cuentabancaria?.fechaapertura || this.fechaapertura;
         this.estado = cuentabancaria?.estado;
     }
 
-    async guardar(transaction?: mssql.Transaction){
+    async guardar(transaction?: mssql.Transaction) {
         let isTrx: boolean = true;
         let pool = await dbConnection();
         if (!transaction) {
@@ -36,7 +36,7 @@ export class CuentaBancaria {
             await new mssql.Request(transaction)
                 .input('regional', mssql.Int(), this.regional.id)
                 .input('tipocuenta', mssql.Int(), this.tipocuenta.id)
-                .input('entfinancienta', mssql.Int(), this.entfinancienta.id)
+                .input('entfinanciera', mssql.Int(), this.entfinanciera.id)
                 .input('ncuenta', mssql.VarChar(100), this.ncuenta)
                 .input('moneda', mssql.Int(), this.moneda.id)
                 .input('fechaapertura', mssql.Date(), this.fechaapertura)
