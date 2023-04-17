@@ -286,7 +286,7 @@ export class Credito {
             fechaPeriodo: new Date(this.fechadesembolso),
             tasaIdxEA: tasa / 100,
             spreadEA: spreadEA,
-            tasaEA: (1 + tasa / 100) * (1 + spreadEA) - 1,
+            tasaEA: this.indexado.descripcion == 'UVR' ? ((tasa / 100) + spreadEA) : (1 + tasa / 100) * (1 + spreadEA) - 1,
             saldoCapital: this.capital,
             valorInteres: 0,
             abonoCapital: 0,
@@ -302,7 +302,7 @@ export class Credito {
             amortizacion.fechaPeriodo = fechaPeriodo;
             amortizacion.tasaIdxEA = tasa / 100;
             amortizacion.spreadEA = spreadEA;
-            amortizacion.tasaEA = (1 + tasa / 100) * (1 + spreadEA) - 1;
+            amortizacion.tasaEA = this.indexado.descripcion == 'UVR' ? ((tasa / 100) + spreadEA) : (1 + tasa / 100) * (1 + spreadEA) - 1,
             amortizacion.abonoCapital = this.calcularAbonoCapital(i);
             amortizacion.saldoCapital = this.amortizacion[i - 1].saldoCapital - amortizacion.abonoCapital;
             amortizacion.valorInteres = this.calcularInteresPagado(i, (1 + tasa / 100) * (1 + spreadEA) - 1);
@@ -333,7 +333,7 @@ export class Credito {
             fechaPeriodo: new Date(this.fechadesembolso),
             tasaIdxEA: tasa / 100,
             spreadEA: spreadEA,
-            tasaEA: (1 + tasa / 100) * (1 + spreadEA) - 1,
+            tasaEA: this.indexado.descripcion == 'UVR' ? ((tasa / 100) + spreadEA) : (1 + tasa / 100) * (1 + spreadEA) - 1,
             saldoCapital: this.capital,
             valorInteres: 0,
             abonoCapital: 0,
@@ -343,12 +343,13 @@ export class Credito {
         })
         for (let i = 1; i <= this.plazo; i++) {
             let fechaPeriodo: Date = new Date(new Date(this.amortizacion[i - 1].fechaPeriodo).setDate(this.amortizacion[i - 1].fechaPeriodo.getDate() + 30))
+            if (this.indexado.descripcion == 'UVR') tasa = await macroeconomico.getTasaUVRTrx(transaction, this.fechadesembolso, this.fechadesembolso)
             let amortizacion = new Amortizacion();
             amortizacion.nper = i;
             amortizacion.fechaPeriodo = fechaPeriodo;
             amortizacion.tasaIdxEA = tasa / 100;
             amortizacion.spreadEA = spreadEA;
-            amortizacion.tasaEA = (1 + tasa / 100) * (1 + spreadEA) - 1;
+            amortizacion.tasaEA = this.indexado.descripcion == 'UVR' ? ((tasa / 100) + spreadEA) : (1 + tasa / 100) * (1 + spreadEA) - 1,
             amortizacion.abonoCapital = this.calcularAbonoCapital(i);
             amortizacion.saldoCapital = this.amortizacion[i - 1].saldoCapital - amortizacion.abonoCapital;
             amortizacion.valorInteres = this.calcularInteresPagado(i, (1 + tasa / 100) * (1 + spreadEA) - 1);
@@ -359,7 +360,6 @@ export class Credito {
             if (this.amortizacionint.config.nper != -1 && i % this.amortizacionint.config.nper === 0) {
                 macroeconomico.fecha = fechaPeriodo;
                 if (this.indexado.descripcion == 'TASA FIJA') tasa = this.tasa;
-                else if (this.indexado.descripcion == 'UVR') tasa = await macroeconomico.getTasaUVRTrx(transaction, this.fechadesembolso, this.fechadesembolso)
                 else tasa = (await macroeconomico.getByDateAndTypeTrx(transaction))?.macroeconomicos?.valor || 0;
             }
         }
