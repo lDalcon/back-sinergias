@@ -296,6 +296,7 @@ export class Credito {
         })
         for (let i = 1; i <= this.plazo; i++) {
             let fechaPeriodo: Date = new Date(new Date(this.fechadesembolso).setMonth(this.fechadesembolso.getMonth() + i));
+            if (this.indexado.descripcion == 'UVR') tasa = await macroeconomico.getTasaUVR(this.fechadesembolso, fechaPeriodo)
             let amortizacion = new Amortizacion();
             amortizacion.nper = i;
             amortizacion.fechaPeriodo = fechaPeriodo;
@@ -312,7 +313,6 @@ export class Credito {
             if (this.amortizacionint.config.nper != -1 && i % this.amortizacionint.config.nper === 0) {
                 macroeconomico.fecha = fechaPeriodo;
                 if (this.indexado.descripcion == 'TASA FIJA') tasa = this.tasa;
-                else if (this.indexado.descripcion == 'UVR') tasa = await macroeconomico.getTasaUVR(this.fechadesembolso, fechaPeriodo)
                 else tasa = (await macroeconomico.getByDateAndType())?.macroeconomicos?.valor || 0;
             }
         }
