@@ -34,7 +34,7 @@ export class SaldosDiario {
             await new mssql.Request(transaction)
                 .input('idcuenta', mssql.Int(), this.idcuenta)
                 .input('fecha', mssql.Date(), this.fecha)
-                .input('valor', mssql.Int(), this.valor)
+                .input('valor', mssql.Numeric(28,2), this.valor)
                 .input('nick', mssql.VarChar(50), this.usuariocrea)
                 .execute('sc_saldosdiario_crear_actualizar')
             if (!isTrx) transaction.commit();
