@@ -13,6 +13,7 @@ import ReporteRoute from './routes/reporte.routes'
 import CalendarioRoute from './routes/calendario-cierre.routes'
 import SolicitudRoute from './routes/solicitud.route'
 import SaldosDiario from './routes/saldosdiario.routes'
+import InfoRelevante from './routes/info-relevante.routes'
 import CuentaBancaria from './routes/cuenta-bancaria.route'
 import path from 'path';
 
@@ -52,6 +53,7 @@ app.use('/api/calendario', CalendarioRoute);
 app.use('/api/solicitud', SolicitudRoute);
 app.use('/api/saldosdiario', SaldosDiario);
 app.use('/api/cuentabancaria', CuentaBancaria);
+app.use('/api/inforelevante', InfoRelevante);
 app.get('*', (req: Request, res: Response) => {
     res.sendFile(path.resolve(__dirname, 'public/index.html'));
 });
