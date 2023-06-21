@@ -184,6 +184,39 @@ export class Credito {
         }
     }
 
+    async anular(transaction?: mssql.Transaction, validarPeriodo: boolean = true) {
+        let isTrx: boolean = true;
+        let pool = await dbConnection();
+        if (!transaction) {
+            transaction = new mssql.Transaction(pool);
+            isTrx = false;
+        }
+        try {
+            if (!isTrx) await transaction.begin();
+            if (validarPeriodo) {
+                let calendario: CalendarioCierre = new CalendarioCierre({ ano: this.fechadesembolso.getFullYear(), periodo: this.fechadesembolso.getMonth() + 1 });
+                calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
+                if (!calendario.registro) throw new Error('El mes se encuentra cerrado para registros.');
+            }
+            await new mssql.Request(transaction)
+                .input('id', mssql.Int(), this.id)
+                .input('nick', mssql.VarChar(50), this.usuariocrea)
+                .execute('sc_credito_anular')
+            if (!isTrx) {
+                transaction.commit();
+            }
+            pool.close();
+            return { ok: true, message: 'Credito anulado' }
+        } catch (error) {
+            console.log(error)
+            if (!isTrx) {
+                await transaction.rollback();
+            }
+            pool.close();
+            return { ok: false, message: error?.['message'] }
+        }
+    }
+
     async listar(filtro?: any): Promise<{ ok: boolean, data?: ICredito[], message?: string }> {
         let pool = await dbConnection();
         return new Promise((resolve) => {
