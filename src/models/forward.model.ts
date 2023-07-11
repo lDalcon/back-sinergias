@@ -121,7 +121,7 @@ export class Forward {
                 .input('regional', mssql.Int(), this.regional.id)
                 .input('valorusd', mssql.Numeric(18, 2), this.valorusd)
                 .input('tasaspot', mssql.Numeric(18, 2), this.tasaspot)
-                .input('devaluacion', mssql.Numeric(6, 5), this.devaluacion.toFixed(5))
+                .input('devaluacion', mssql.Numeric(8, 5), this.devaluacion)
                 .input('tasaforward', mssql.Numeric(18, 2), this.tasaforward)
                 .input('valorcop', mssql.Numeric(18, 2), this.valorcop)
                 .input('estado', mssql.VarChar(20), this.estado)
