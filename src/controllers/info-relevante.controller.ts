@@ -49,3 +49,13 @@ export const listarInfoRelevanteDia = async (req: Request, res: Response) => {
         })
         .catch(err => res.status(500).json({ ok: false, message: err }))
 }
+
+export const borrarDia = async (req: Request, res: Response) => {
+    let saldosdiario: InfoRelevante = new InfoRelevante();
+    saldosdiario.borrarDia(req.body)
+        .then(result => {
+            if (!result.ok) return res.status(400).json(result);
+            return res.status(200).json(result)
+        })
+        .catch(err => res.status(500).json({ ok: false, message: err }))
+}

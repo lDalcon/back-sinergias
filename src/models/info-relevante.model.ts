@@ -111,4 +111,23 @@ export class InfoRelevante {
                 })
         });
     }
+
+    async borrarDia( params: any): Promise<{ ok: boolean, message?: any }>{
+        let pool = await dbConnection();
+        return new Promise((resolve) => {
+            pool.request()
+                .input('fecha', mssql.Date(), params.fecha)
+                .input('regional', mssql.Int(), params.regional)
+                .execute('sc_inforelevante_borrar')
+                .then(() => {
+                    pool.close();
+                    resolve({ ok: true, message: 'Datos borrados correctamente.' })
+                })
+                .catch(err => {
+                    console.log(err);
+                    pool.close();
+                    resolve({ ok: false, message: err })
+                })
+        });
+    }
 }

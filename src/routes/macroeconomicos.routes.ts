@@ -2,7 +2,7 @@
 // Imports
 //===============================================================================
 import { Router } from "express";
-import { getByDateAndType } from "../controllers/macroeconomicos.controller";
+import { create, createAll, getByDateAndType } from "../controllers/macroeconomicos.controller";
 import validarJWT from "../middlewares/validar-jwt";
 const router = Router();
 //===============================================================================
@@ -10,6 +10,11 @@ const router = Router();
 //===============================================================================
 
 router.get('/:date/:type', validarJWT, getByDateAndType);
+
+router.post('/', validarJWT, create)
+
+router.post('/importar', validarJWT, createAll)
+
 
 //===============================================================================
 // Exports

@@ -3,7 +3,7 @@
 //===============================================================================
 import { Router } from "express";
 import validarJWT from "../middlewares/validar-jwt";
-import { guardarSaldosDiario, listarSaldos, listarSaldosDia, procesarSaldosDiaro } from "../controllers/saldosdiario.controller";
+import { borrarDia, guardarSaldosDiario, listarSaldos, listarSaldosDia, procesarSaldosDiaro } from "../controllers/saldosdiario.controller";
 
 const router = Router();
 //===============================================================================
@@ -17,6 +17,8 @@ router.get('/dia', validarJWT, listarSaldosDia);
 router.post('/', validarJWT, guardarSaldosDiario)
 
 router.post('/procesar', validarJWT, procesarSaldosDiaro)
+
+router.delete('/', validarJWT, borrarDia)
 
 
 //===============================================================================
