@@ -51,8 +51,8 @@ export const listarInfoRelevanteDia = async (req: Request, res: Response) => {
 }
 
 export const borrarDia = async (req: Request, res: Response) => {
-    let saldosdiario: InfoRelevante = new InfoRelevante();
-    saldosdiario.borrarDia(req.body)
+    let infoRelevante: InfoRelevante = new InfoRelevante();
+    infoRelevante.borrarDia(req.body)
         .then(result => {
             if (!result.ok) return res.status(400).json(result);
             return res.status(200).json(result)

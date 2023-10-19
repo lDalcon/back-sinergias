@@ -113,6 +113,7 @@ export class InfoRelevante {
     }
 
     async borrarDia( params: any): Promise<{ ok: boolean, message?: any }>{
+        console.log(params)
         let pool = await dbConnection();
         return new Promise((resolve) => {
             pool.request()
