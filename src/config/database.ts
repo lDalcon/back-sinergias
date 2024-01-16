@@ -6,10 +6,10 @@ dotenv.config();
 const dbConnection = (): Promise<mssql.ConnectionPool> => {
     return new Promise((resolve, reject) => {
         let pool = new mssql.ConnectionPool({
-            user: process.env.DB_USER || '',
-            password: process.env.DB_PASSWORD || '',
-            server: process.env.DB_SERVER || '',
-            database: process.env.DB_NAME || '',
+            user: process.env.DB_USER || 'sa',
+            password: process.env.DB_PASSWORD || 'Wimm1234+',
+            server: process.env.DB_SERVER || 'localhost',
+            database: process.env.DB_NAME || 'Sinergias_db',
             parseJSON: true,
             options: {
                 encrypt: true,

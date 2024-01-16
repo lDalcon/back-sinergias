@@ -144,6 +144,7 @@ export class Credito {
                 calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
                 if (!calendario.registro) throw new Error('El mes se encuentra cerrado para registros.');
             }
+            await this.simular365Trx(transaction);
             await new mssql.Request(transaction)
                 .input('id', mssql.Int(), this.id)
                 .input('fechadesembolso', mssql.Date(), this.fechadesembolso)
@@ -437,7 +438,6 @@ export class Credito {
             let creditosActivos = await this.obtenerCreditosActivos(transaction, params);
             for (let i = 0; i < creditosActivos.length; i++) {
                 let credito = (await this.obtenerTrx(transaction, creditosActivos[i].id)).data || new Credito();
-                await credito.simular365Trx(transaction);
                 await credito.actualizar(transaction, false);
             }
             await transaction.commit();
