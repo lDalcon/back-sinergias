@@ -1,10 +1,10 @@
-DECLARE @ano INT = 2023
-DECLARE @periodo INT = 12
+DECLARE @ano INT = 2024
+DECLARE @periodo INT = 1
 DECLARE @fechainicial DATE = DATEFROMPARTS(@ano, @periodo, 1)
 DECLARE @fechafinal DATE = eomonth(@fechainicial)
 DECLARE @fechadia DATE = @fechainicial
 
-DELETE credito_saldos WHERE ANO = @ano AND periodo = @periodo AND saldokinicial = 0 AND abonoscapital = 0 AND interespago = 0<
+DELETE credito_saldos WHERE ANO = @ano AND periodo = @periodo AND saldokinicial = 0 AND abonoscapital = 0 AND interespago = 0
 
 
 DECLARE @resumencredito TABLE(

@@ -329,7 +329,7 @@ export class Credito {
             actualizaIdx: false
         })
         for (let i = 1; i <= this.plazo; i++) {
-            let fechaPeriodo: Date = new Date(new Date(this.fechadesembolso).setMonth(this.fechadesembolso.getMonth() + i));
+            let fechaPeriodo: Date = this.aumentarMes(this.fechadesembolso, i);
             if (this.indexado.descripcion == 'UVR') tasa = await macroeconomico.getTasaUVR(this.fechadesembolso, fechaPeriodo)
             let amortizacion = new Amortizacion();
             amortizacion.nper = i;
@@ -358,7 +358,7 @@ export class Credito {
         macroeconomico.fecha = this.fechadesembolso;
         let tasa: number = 0;
         if (this.indexado.descripcion == 'TASA FIJA') tasa = this.tasa;
-        else if (this.indexado.descripcion == 'UVR') tasa = await macroeconomico.getTasaUVRTrx(transaction, this.fechadesembolso, this.fechadesembolso)
+        else if (this.indexado.descripcion == 'UVR') tasa = await macroeconomico.getTasaUVRTrx(transaction, this.fechadesembolso, this.fechadesembolso);
         else tasa = (await macroeconomico.getByDateAndTypeTrx(transaction))?.macroeconomicos?.valor || 0;
         let spreadEA: number = this.convertirTasaEA(this.spread, this.tipointeres.config);
         this.amortizacion = [];
@@ -376,7 +376,7 @@ export class Credito {
             actualizaIdx: false
         })
         for (let i = 1; i <= this.plazo; i++) {
-            let fechaPeriodo: Date = new Date(new Date(this.amortizacion[i - 1].fechaPeriodo).setDate(this.amortizacion[i - 1].fechaPeriodo.getDate() + 30))
+            let fechaPeriodo: Date = this.aumentarMes(this.fechadesembolso, i);
             if (this.indexado.descripcion == 'UVR') tasa = await macroeconomico.getTasaUVRTrx(transaction, this.fechadesembolso, this.fechadesembolso)
             let amortizacion = new Amortizacion();
             amortizacion.nper = i;
@@ -491,5 +491,20 @@ export class Credito {
             .input('periodo', mssql.Int(), params.periodo)
             .execute('sc_creditos_saldos_obteneractivos')
         return result.recordset
+    }
+
+
+    private aumentarMes(fecha: Date, nMes: number){
+        let year = fecha.getFullYear();
+        let month = fecha.getMonth();
+        let day = fecha.getDate() + 1;
+        month += nMes;
+        year += Math.floor(month/12);
+        month = month % 12;
+        if (day > 28 && month === 1) {
+            day = 0;
+            month++;
+        }
+        return new Date(Date.UTC(year, month, day));
     }
 }
