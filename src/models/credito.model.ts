@@ -497,7 +497,7 @@ export class Credito {
     private aumentarMes(fecha: Date, nMes: number){
         let year = fecha.getFullYear();
         let month = fecha.getMonth();
-        let day = fecha.getDate() + 1;
+        let day = fecha.getDate();
         month += nMes;
         year += Math.floor(month/12);
         month = month % 12;
