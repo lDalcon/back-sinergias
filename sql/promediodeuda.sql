@@ -1,5 +1,5 @@
 DECLARE @ano INT = 2024
-DECLARE @periodo INT = 1
+DECLARE @periodo INT = 2
 DECLARE @fechainicial DATE = DATEFROMPARTS(@ano, @periodo, 1)
 DECLARE @fechafinal DATE = eomonth(@fechainicial)
 DECLARE @fechadia DATE = @fechainicial

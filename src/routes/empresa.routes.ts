@@ -3,12 +3,13 @@
 //===============================================================================
 import { Router } from "express";
 import validarJWT from "../middlewares/validar-jwt";
+import { getAll } from "../controllers/empresa.controller";
 const router = Router();
 //===============================================================================
 // Path: api/empresa
 //===============================================================================
 
-// router.get('/:id', validarJWT, );
+router.get('/', validarJWT, getAll);
 
 //===============================================================================
 // Exports

@@ -8,6 +8,7 @@ import { DetallePago } from './detalle-pago.model';
 import { MacroEconomicos } from './macroeconomicos.model';
 import { Regional } from './regional.model';
 import { ValorCatalogo } from './valor-catalogo.model';
+import { Empresa } from './empresa.model';
 
 export class Credito {
     id: number = 0;
@@ -42,6 +43,9 @@ export class Credito {
     aumentocapital: AumentoCapital[] = [];
     observaciones: string = '';
     idsolicitud: number = -1;
+    aval1: Empresa = new Empresa();
+    aval2: Empresa = new Empresa();
+    aval3: Empresa = new Empresa();
 
     constructor(credito?: any) {
         this.id = credito?.id || this.id;
@@ -76,6 +80,9 @@ export class Credito {
         this.aumentocapital = credito?.aumentocapital || this.aumentocapital;
         this.observaciones = credito?.observaciones || this.observaciones;
         this.idsolicitud = credito?.idsolicitud || this.idsolicitud;
+        this.aval1 = new Empresa(credito?.aval1) || this.aval1;
+        this.aval2 = new Empresa(credito?.aval2) || this.aval2;
+        this.aval3 = new Empresa(credito?.aval3) || this.aval3;
     }
 
     async guardar(transaction?: mssql.Transaction) {
@@ -114,6 +121,9 @@ export class Credito {
                 .input('amortizacion', mssql.VarChar(mssql.MAX), JSON.stringify({ amortizacion: this.amortizacion }))
                 .input('observaciones', mssql.NVarChar(mssql.MAX), this.observaciones)
                 .input('idsolicitud', mssql.Int(), this.idsolicitud)
+                .input('aval1', mssql.VarChar(150), this.aval1.razonsocial)
+                .input('aval2', mssql.VarChar(150), this.aval2.razonsocial)
+                .input('aval3', mssql.VarChar(150), this.aval3.razonsocial)
                 .execute('sc_credito_guardar')
             if (!isTrx) {
                 transaction.commit();
@@ -169,6 +179,9 @@ export class Credito {
                 .input('periodogracia', mssql.Int(), this.periodogracia)
                 .input('amortizacion', mssql.VarChar(mssql.MAX), JSON.stringify({ amortizacion: this.amortizacion }))
                 .input('observaciones', mssql.NVarChar(mssql.MAX), this.observaciones)
+                .input('aval1', mssql.VarChar(150), this.aval1)
+                .input('aval2', mssql.VarChar(150), this.aval2)
+                .input('aval3', mssql.VarChar(150), this.aval3)
                 .execute('sc_credito_actualizar')
             if (!isTrx) {
                 transaction.commit();
