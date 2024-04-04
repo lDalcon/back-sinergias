@@ -179,9 +179,6 @@ export class Credito {
                 .input('periodogracia', mssql.Int(), this.periodogracia)
                 .input('amortizacion', mssql.VarChar(mssql.MAX), JSON.stringify({ amortizacion: this.amortizacion }))
                 .input('observaciones', mssql.NVarChar(mssql.MAX), this.observaciones)
-                .input('aval1', mssql.VarChar(150), this.aval1)
-                .input('aval2', mssql.VarChar(150), this.aval2)
-                .input('aval3', mssql.VarChar(150), this.aval3)
                 .execute('sc_credito_actualizar')
             if (!isTrx) {
                 transaction.commit();
