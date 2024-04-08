@@ -9,6 +9,7 @@ import { MacroEconomicos } from './macroeconomicos.model';
 import { Regional } from './regional.model';
 import { ValorCatalogo } from './valor-catalogo.model';
 import { Empresa } from './empresa.model';
+const moment = require('moment');
 
 export class Credito {
     id: number = 0;
@@ -327,7 +328,7 @@ export class Credito {
         this.amortizacion = [];
         this.amortizacion.push({
             nper: 0,
-            fechaPeriodo: new Date(this.fechadesembolso),
+            fechaPeriodo: moment(this.fechadesembolso).format('YYYY-MM-DD'),
             tasaIdxEA: tasa / 100,
             spreadEA: spreadEA,
             tasaEA: this.indexado.descripcion == 'UVR' ? ((tasa / 100) + spreadEA) : (1 + tasa / 100) * (1 + spreadEA) - 1,
@@ -374,7 +375,7 @@ export class Credito {
         this.amortizacion = [];
         this.amortizacion.push({
             nper: 0,
-            fechaPeriodo: new Date(this.fechadesembolso),
+            fechaPeriodo: moment(this.fechadesembolso).format('YYYY-MM-DD'),
             tasaIdxEA: tasa / 100,
             spreadEA: spreadEA,
             tasaEA: this.indexado.descripcion == 'UVR' ? ((tasa / 100) + spreadEA) : (1 + tasa / 100) * (1 + spreadEA) - 1,
@@ -503,18 +504,18 @@ export class Credito {
         return result.recordset
     }
 
-
     private aumentarMes(fecha: Date, nMes: number){
-        let year = fecha.getFullYear();
-        let month = fecha.getMonth();
-        let day = fecha.getDate();
-        month += nMes;
-        year += Math.floor(month/12);
-        month = month % 12;
-        if (day > 28 && month === 1) {
-            day = 0;
-            month++;
-        }
-        return new Date(Date.UTC(year, month, day));
+        return moment(fecha).add(nMes, 'months').format('YYYY-MM-DD');
+        // let year = fecha.getFullYear();
+        // let month = fecha.getMonth();
+        // let day = fecha.getDate();
+        // month += nMes;
+        // year += Math.floor(month/12);
+        // month = month % 12;
+        // if (day > 28 && month === 1) {
+        //     day = 0;
+        //     month++;
+        // }
+        // return new Date(Date.UTC(year, month, day));
     }
 }
