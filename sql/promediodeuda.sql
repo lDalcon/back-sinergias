@@ -1,7 +1,7 @@
 DECLARE @ano INT = 2024
-DECLARE @periodo INT = 2
+DECLARE @periodo INT = 4
 DECLARE @fechainicial DATE = DATEFROMPARTS(@ano, @periodo, 1)
-DECLARE @fechafinal DATE = eomonth(@fechainicial)
+DECLARE @fechafinal DATE = CASE WHEN eomonth(@fechainicial) > GETDATE() THEN CAST(GETDATE() as date)  ELSE eomonth(@fechainicial) END
 DECLARE @fechadia DATE = @fechainicial
 
 DELETE credito_saldos WHERE ANO = @ano AND periodo = @periodo AND saldokinicial = 0 AND abonoscapital = 0 AND interespago = 0
@@ -16,7 +16,8 @@ DECLARE @resumencredito TABLE(
     moneda varchar(50),
     fechadesembolso DATE,
     trmdesembolso numeric(18, 2),
-    tipodeuda varchar(50)
+    tipodeuda varchar(50),
+    estado varchar(10)
 )
 
 DECLARE @detallesaldos TABLE(
@@ -37,7 +38,8 @@ SELECT
     moneda.descripcion,
     credito.fechadesembolso,
     0,
-    v_entfinanciera_tipo.tipo
+    v_entfinanciera_tipo.tipo,
+    credito.estado
 FROM 
     credito_saldos
 
@@ -59,6 +61,7 @@ FROM
 WHERE
     credito_saldos.ano = @ano
     AND credito_saldos.periodo = @periodo
+    AND credito.estado != 'ANULADO'
 
 UPDATE @resumencredito SET
     trmdesembolso = isnull((SELECT valor FROM macroeconomicos where macroeconomicos.fecha = fechadesembolso and macroeconomicos.tipo = 'TRM'), -1)
@@ -83,13 +86,14 @@ FETCH NEXT FROM cursorcredito INTO @idcredito, @saldoinicial;
 -- Iniciar un bucle para recorrer los registros
 WHILE @@FETCH_STATUS = 0
 BEGIN
-    SET @fechadia = @fechainicial
+    DECLARE @fechadesembolso AS DATE
     DECLARE @saldo numeric(18, 2) = @saldoinicial
+    SET @fechadia = (SELECT CASE WHEN fechadesembolso < @fechainicial THEN @fechainicial ELSE fechadesembolso END FROM credito WHERE id = @idcredito)
     WHILE @fechadia <= @fechafinal
     BEGIN
         --PRINT 'Credito: ' + cast(@idcredito as varchar(10)) + ', Fecha: ' + cast(@fechadia as varchar(20));
 
-        DECLARE @movimiento NUMERIC(18,2) = (SELECT isnull(SUM(valor),0) FROM detallepago WHERE idcredito = @idcredito and fechapago = @fechadia )
+        DECLARE @movimiento NUMERIC(18,2) = (SELECT isnull(SUM(valor),0) FROM detallepago WHERE idcredito = @idcredito and fechapago = @fechadia and tipopago = 'Capital')
         INSERT INTO @detallesaldos VALUES
         (@idcredito, @fechadia, @saldo, @movimiento, @saldo - @movimiento)
         
@@ -118,4 +122,3 @@ FROM
     
     INNER JOIN @detallesaldos B
     ON A.idcredito = B.idcredito
-
