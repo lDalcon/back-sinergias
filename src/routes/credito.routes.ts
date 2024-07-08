@@ -1,9 +1,18 @@
 //===============================================================================
 // Imports
 //===============================================================================
-import { Router } from "express";
-import { actualizar, actualizarAmortizacion, anular, crearCredito, listarCreditos, obtenerCredito, simularCredito, validarPagare } from "../controllers/credito.controller";
-import validarJWT from "../middlewares/validar-jwt";
+import { Router } from 'express';
+import {
+  actualizar,
+  actualizarAmortizacion,
+  anular,
+  crearCredito,
+  listarCreditos,
+  obtenerCredito,
+  simularCredito,
+  validarPagare
+} from '../controllers/credito.controller';
+import validarJWT from '../middlewares/validar-jwt';
 
 const router = Router();
 //===============================================================================
@@ -22,10 +31,9 @@ router.put('/', validarJWT, actualizar);
 
 router.delete('/', validarJWT, anular);
 
-router.post('/simular', validarJWT, simularCredito)
+router.post('/simular', validarJWT, simularCredito);
 
-router.post('/actualizarAmortizacion', validarJWT, actualizarAmortizacion)
-
+router.post('/actualizarAmortizacion', validarJWT, actualizarAmortizacion);
 
 //===============================================================================
 // Exports

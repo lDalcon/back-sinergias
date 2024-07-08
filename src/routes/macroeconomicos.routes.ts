@@ -1,9 +1,9 @@
 //===============================================================================
 // Imports
 //===============================================================================
-import { Router } from "express";
-import { create, createAll, getByDateAndType } from "../controllers/macroeconomicos.controller";
-import validarJWT from "../middlewares/validar-jwt";
+import { Router } from 'express';
+import { create, createAll, getByDateAndType } from '../controllers/macroeconomicos.controller';
+import validarJWT from '../middlewares/validar-jwt';
 const router = Router();
 //===============================================================================
 // Path: api/macroeconomicos
@@ -11,10 +11,9 @@ const router = Router();
 
 router.get('/:date/:type', validarJWT, getByDateAndType);
 
-router.post('/', validarJWT, create)
+router.post('/', validarJWT, create);
 
-router.post('/importar', validarJWT, createAll)
-
+router.post('/importar', validarJWT, createAll);
 
 //===============================================================================
 // Exports

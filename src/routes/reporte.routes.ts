@@ -1,9 +1,9 @@
 //===============================================================================
 // Imports
 //===============================================================================
-import { Router } from "express";
-import { diferenciaCambio, infoRegistroSolicitud, reporteConsolidado } from "../controllers/reporte.controler";
-import validarJWT from "../middlewares/validar-jwt";
+import { Router } from 'express';
+import { diferenciaCambio, infoRegistroSolicitud, reporteConsolidado } from '../controllers/reporte.controler';
+import validarJWT from '../middlewares/validar-jwt';
 
 const router = Router();
 //===============================================================================
@@ -12,9 +12,9 @@ const router = Router();
 
 router.get('/', validarJWT, reporteConsolidado);
 
-router.get('/infoRegistroSolicitud/:regional', validarJWT, infoRegistroSolicitud)
+router.get('/infoRegistroSolicitud/:regional', validarJWT, infoRegistroSolicitud);
 
-router.post('/diferenciacambio', validarJWT, diferenciaCambio)
+router.post('/diferenciacambio', validarJWT, diferenciaCambio);
 
 //===============================================================================
 // Exports

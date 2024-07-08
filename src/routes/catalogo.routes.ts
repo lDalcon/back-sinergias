@@ -1,9 +1,9 @@
 //===============================================================================
 // Imports
 //===============================================================================
-import { Router } from "express";
-import { getById } from "../controllers/catalogo.controller";
-import validarJWT from "../middlewares/validar-jwt";
+import { Router } from 'express';
+import { getById } from '../controllers/catalogo.controller';
+import validarJWT from '../middlewares/validar-jwt';
 const router = Router();
 //===============================================================================
 // Path: api/catalogo

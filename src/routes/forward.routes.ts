@@ -1,10 +1,18 @@
 //===============================================================================
 // Imports
 //===============================================================================
-import { Router } from "express";
-import { actualizarForward, asignarCredito, cerrar, crearForward, editarCreditoForward, listarForward, obtenerForward } from "../controllers/forward.controller";
+import { Router } from 'express';
+import {
+  actualizarForward,
+  asignarCredito,
+  cerrar,
+  crearForward,
+  editarCreditoForward,
+  listarForward,
+  obtenerForward
+} from '../controllers/forward.controller';
 
-import validarJWT from "../middlewares/validar-jwt";
+import validarJWT from '../middlewares/validar-jwt';
 
 const router = Router();
 //===============================================================================

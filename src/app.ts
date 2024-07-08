@@ -58,7 +58,7 @@ app.use('/api/saldosdiario', SaldosDiario);
 app.use('/api/solicitud', SolicitudRoute);
 app.use('/api/usuario', UsuarioRoute);
 app.get('*', (req: Request, res: Response) => {
-	res.sendFile(path.resolve(__dirname, 'public/index.html'));
+  res.sendFile(path.resolve(__dirname, 'public/index.html'));
 });
 
 export default app;
