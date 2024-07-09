@@ -1,5 +1,5 @@
 import { Parametros } from '../interface/parametros.interface';
-import mssql, { IProcedureResult } from 'mssql';
+import mssql from 'mssql';
 import { ForwardSaldos } from './forward-saldos.model';
 import { CreditoSaldos } from './credito-saldos.model';
 import moment from 'moment';
