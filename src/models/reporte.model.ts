@@ -1,6 +1,9 @@
 import mssql from 'mssql';
 import dbConnection from '../config/database';
 import { CalendarioCierre } from './calendario-cierre.model';
+import { Parametros } from '../interface/parametros.interface';
+import { DiferenciaCambio } from './diferencia-cambio.model';
+import moment from 'moment';
 
 export class Reporte {
   constructor() {}
@@ -35,8 +38,8 @@ export class Reporte {
     return new Promise((resolve) => {
       pool
         .request()
-        .input('ano', mssql.Int(), parametros.fecha.getFullYear())
-        .input('periodo', mssql.Int(), parametros.fecha.getMonth() + 1)
+        .input('ano', mssql.Int(), moment(parametros.fecha).year())
+        .input('periodo', mssql.Int(), moment(parametros.fecha).month() + 1)
         .input('nick', mssql.VarChar(50), parametros?.nick || null)
         .input('nit', mssql.VarChar(15), parametros?.nit || null)
         .execute('sc_dc_obtener')
@@ -57,15 +60,15 @@ export class Reporte {
     let response: any;
     let message: string = 'Proceso exitoso!';
     let transaction = new mssql.Transaction(pool);
-    parametros.fecha = new Date(parametros.fecha);
+    const difCambio = new DiferenciaCambio();
     try {
       await transaction.begin();
       let calendario: CalendarioCierre = new CalendarioCierre({
-        ano: parametros.fecha.getFullYear(),
-        periodo: parametros.fecha.getMonth() + 1
+        ano: moment(parametros.fecha).year(),
+        periodo: moment(parametros.fecha).month()+ 1
       });
       calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
-      if (calendario.proceso) await this.procesarDiferenciaCambio(parametros, transaction);
+      if (calendario.proceso) await difCambio.procesarDiferenciaCambio(parametros, transaction);
       else message = 'El mes se encuetra cerrado para procesos, el reporte mostrado es histórico.';
       await transaction.commit();
       await pool.close();
@@ -109,8 +112,4 @@ export class Reporte {
   }
 }
 
-interface Parametros {
-  fecha: Date;
-  nick?: string;
-  nit?: string;
-}
+

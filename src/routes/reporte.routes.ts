@@ -7,7 +7,7 @@ import validarJWT from '../middlewares/validar-jwt';
 
 const router = Router();
 //===============================================================================
-// Path: api/creditos
+// Path: api/reporte
 //===============================================================================
 
 router.get('/', validarJWT, reporteConsolidado);

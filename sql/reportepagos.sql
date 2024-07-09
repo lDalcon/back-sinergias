@@ -1,5 +1,5 @@
 DECLARE @ano INT = 2024
-DECLARE @periodo INT = 5
+DECLARE @periodo INT = 6
 DECLARE @anoanterior INT
 DECLARE @periodoanterior INT
 DECLARE @trmcierre NUMERIC(18,2)

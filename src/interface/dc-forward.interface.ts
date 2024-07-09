@@ -1,0 +1,29 @@
+export interface IDcForward {
+  ano: number;
+  periodo: number;
+  idforward: number;
+  idcredito: number;
+  regional: string;
+  entfinanciera: string;
+  lineacreadito: string;
+  valorusd: number;
+  fechaoperacion: string;
+  fechacumplimiento: string;
+  dias: number;
+  tasaspot: number;
+  devaluacion: number;
+  tasaforward: number;
+  valorcop: number;
+  saldoforward: number;
+  saldoforwardcop: number;
+  tasadeuda: number;
+  fechadesembolso: string;
+  trmdesembolso: number,
+  diftasa: number;
+  totaldifcambio: number;
+  difxdia: number;
+  diascausados: number;
+  difacumulada: number;
+  difxcausar: number;
+  devaluacioncr: number;
+}
