@@ -70,8 +70,14 @@ export class DiferenciaCambio {
           : moment(fecha).diff(fwd.fechadesembolso, 'day');
       fwd.difacumulada = round(fwd.diascausados * fwd.difxdia, 2);
       fwd.difxcausar = round(fwd.totaldifcambio - fwd.difacumulada, 2);
-      fwd.devaluacioncr =
-        fwd.idcredito === 0 ? 0 : round(devaluation(fwd.tasaforward, fwd.tasadeuda, fwd.diascausados), 4);
+      fwd.devaluacioncr = round(
+        devaluation(
+          fwd.tasaforward,
+          fwd.tasadeuda,
+          fwd.idcredito === 0 ? 0 : moment(fwd.fechacumplimiento).diff(fwd.fechadesembolso, 'day')
+        ),
+        4
+      );
     }
     await transaction.request().query(`
       INSERT INTO dc_forward VALUES 
