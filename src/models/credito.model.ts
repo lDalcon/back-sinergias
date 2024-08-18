@@ -245,6 +245,7 @@ export class Credito {
         .request()
         .input('nick', mssql.VarChar(50), this.usuariocrea)
         .input('regional', mssql.Int(), filtro?.regional || null)
+        .input('lineacredito', mssql.Int(), filtro?.lineacredito || null)
         .input('estado', mssql.VarChar(20), filtro?.estado || null)
         .execute('sc_credito_listar')
         .then((result) => {
