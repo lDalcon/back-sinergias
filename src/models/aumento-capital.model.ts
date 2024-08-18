@@ -6,7 +6,7 @@ export class AumentoCapital {
   ano: number = 0;
   periodo: number = 0;
   idcredito: number = 0;
-  fechadesembolso: Date = new Date('1900-01-01');
+  fecha: Date = new Date('1900-01-01');
   valor: number = 0;
   moneda: ValorCatalogo = new ValorCatalogo();
   observacion: string = '';
@@ -17,7 +17,7 @@ export class AumentoCapital {
     this.ano = aumentoCapital?.ano || this.ano;
     this.periodo = aumentoCapital?.periodo || this.periodo;
     this.idcredito = aumentoCapital?.idcredito || this.idcredito;
-    this.fechadesembolso = aumentoCapital?.fechadesembolso || this.fechadesembolso;
+    this.fecha = aumentoCapital?.fechadesembolso || this.fecha;
     this.valor = aumentoCapital?.valor || this.valor;
     this.moneda = aumentoCapital?.moneda || this.moneda;
     this.observacion = aumentoCapital?.observacion || this.observacion;
@@ -35,7 +35,7 @@ export class AumentoCapital {
     try {
       if (!isTrx) await transaction.begin();
       await new mssql.Request(transaction)
-        .input('fechadesembolso', mssql.Date(), this.fechadesembolso)
+        .input('fechadesembolso', mssql.Date(), this.fecha)
         .input('moneda', mssql.Int(), this.moneda.id)
         .execute('sc_credito_guardar');
       if (!isTrx) {

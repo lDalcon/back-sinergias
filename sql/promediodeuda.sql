@@ -1,5 +1,5 @@
 DECLARE @ano INT = 2024
-DECLARE @periodo INT = 6
+DECLARE @periodo INT = 7
 DECLARE @fechainicial DATE = DATEFROMPARTS(@ano, @periodo, 1)
 DECLARE @fechafinal DATE = CASE WHEN eomonth(@fechainicial) > GETDATE() THEN CAST(GETDATE() as date)  ELSE eomonth(@fechainicial) END
 DECLARE @fechadia DATE = @fechainicial
