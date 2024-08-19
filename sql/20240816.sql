@@ -79,7 +79,7 @@ CREATE TABLE [dbo].[aumentocapital](
 	[fecha] [date] NOT NULL,
     [tipo] [varchar](15) NOT NULL,
 	[valor] [numeric](18, 2) NOT NULL,
-	[moneda] [int] NOT NULL,
+	[estado] [varchar](10) NOT NULL,
 	[observacion] [varchar](500) NULL,
 	[usuariocrea] [varchar](50) NOT NULL,
 	[fechacrea] [datetime] NOT NULL
@@ -90,4 +90,226 @@ REFERENCES [dbo].[credito] ([id])
 GO
 ALTER TABLE [dbo].[aumentocapital]  WITH CHECK ADD FOREIGN KEY([usuariocrea])
 REFERENCES [dbo].[usuarios] ([nick])
+GO
+
+INSERT INTO menu VALUES
+(
+    'DEUDASALDOSINFOFINCONS',
+    '[
+	{
+		"items": [
+			{
+				"icon": "pi pi-fw pi-chart-pie",
+				"label": "Gerencial",
+				"routerLink": [
+					"/dashboard/gerencia"
+				]
+			},
+			{
+				"icon": "pi pi-fw pi-chart-bar",
+				"label": "Financiero",
+				"routerLink": [
+					"/dashboard/financiero"
+				]
+			}
+		],
+		"label": "Dashboard"
+	},
+	{
+		"items": [
+			{
+				"icon": "pi pi-fw pi-credit-card",
+				"label": "Obligaciones",
+				"routerLink": [
+					"/financiero/obligaciones"
+				]
+			},
+			{
+				"icon": "pi pi-fw pi-dollar",
+				"label": "Forward",
+				"routerLink": [
+					"/financiero/forward"
+				]
+			},
+			{
+				"icon": "pi pi-fw pi-wallet",
+				"label": "Dif. en Cambio",
+				"routerLink": [
+					"/financiero/diferenciacambio"
+				]
+			},
+			{
+				"icon": "pi pi-fw pi-calendar",
+				"label": "Saldos Diarios",
+				"routerLink": [
+					"/financiero/saldosdiario"
+				]
+			},
+			{
+				"icon": "pi pi-fw pi-database",
+				"label": "Info. Relevante",
+				"routerLink": [
+					"/financiero/inforelevante"
+				]
+			},
+			{
+                "icon": "pi pi-fw pi-building",
+                "label": "Crédito Constructor",
+                "routerLink": [
+                    "/financiero/constructor"
+                ]
+            }
+		],
+		"label": "Financiero"
+	}
+]'
+)
+
+UPDATE menu SET opciones = '[
+    {
+        "items": [
+            {
+                "icon": "pi pi-fw pi-user",
+                "label": "Usuarios",
+                "routerLink": [
+                    "/admin/usuarios"
+                ]
+            },
+            {
+                "icon": "pi pi-fw pi-calendar",
+                "label": "Calendario",
+                "routerLink": [
+                    "/admin/calendario"
+                ]
+            },
+            {
+                "icon": "pi pi-fw pi-dollar",
+                "label": "Macroeconomicos",
+                "routerLink": [
+                    "/admin/macroeconomicos"
+                ]
+            }
+        ],
+        "label": "Admin"
+    },
+    {
+        "items": [
+            {
+                "icon": "pi pi-fw pi-chart-pie",
+                "label": "Gerencial",
+                "routerLink": [
+                    "/dashboard/gerencia"
+                ]
+            },
+            {
+                "icon": "pi pi-fw pi-chart-bar",
+                "label": "Financiero",
+                "routerLink": [
+                    "/dashboard/financiero"
+                ]
+            }
+        ],
+        "label": "Dashboard"
+    },
+    {
+        "items": [
+            {
+                "icon": "pi pi-fw pi-file",
+                "label": "Solicitudes",
+                "routerLink": [
+                    "/financiero/solicitudes"
+                ]
+            },
+            {
+                "icon": "pi pi-fw pi-credit-card",
+                "label": "Obligaciones",
+                "routerLink": [
+                    "/financiero/obligaciones"
+                ]
+            },
+            {
+                "icon": "pi pi-fw pi-dollar",
+                "label": "Forward",
+                "routerLink": [
+                    "/financiero/forward"
+                ]
+            },
+            {
+                "icon": "pi pi-fw pi-wallet",
+                "label": "Dif. en Cambio",
+                "routerLink": [
+                    "/financiero/diferenciacambio"
+                ]
+            },
+            {
+                "icon": "pi pi-fw pi-calendar",
+                "label": "Saldos Diarios",
+                "routerLink": [
+                    "/financiero/saldosdiario"
+                ]
+            },
+            {
+                "icon": "pi pi-fw pi-database",
+                "label": "Info. Relevante",
+                "routerLink": [
+                    "/financiero/inforelevante"
+                ]
+            },
+            {
+                "icon": "pi pi-fw pi-building",
+                "label": "Crédito Constructor",
+                "routerLink": [
+                    "/financiero/constructor"
+                ]
+            }
+        ],
+        "label": "Financiero"
+    }
+]' WHERE role = 'ADMIN'
+GO
+
+CREATE OR ALTER PROCEDURE sc_aumento_capital_guardar
+    @fecha DATE,
+    @idcredito INT,
+    @tipo VARCHAR(15),
+    @valor NUMERIC(18,2),
+    @estado VARCHAR(10),
+    @observacion VARCHAR(500),
+    @usuariocrea VARCHAR(50)
+AS
+    DECLARE @ano INT = YEAR(@fecha);
+    DECLARE @periodo INT = MONTH(@fecha);
+    INSERT INTO aumentocapital 
+    ( 
+        ano,
+        periodo,
+        idcredito,
+        fecha,
+        tipo,
+        valor,
+        estado,
+        observacion,
+        usuariocrea,
+        fechacrea
+    )
+    VALUES
+    (
+        @ano,
+        @periodo,
+        @idcredito,
+        @fecha,
+        @tipo,
+        @valor,
+        @estado,
+        @observacion,
+        @usuariocrea,
+        GETDATE()
+    )
+
+    UPDATE credito
+    SET capital = capital + @valor
+    WHERE id = @idcredito
+
+    EXEC sc_actualizar_saldos NULL, @idcredito
+    EXEC sc_credito_saldos_actualizar @ano, @periodo, @idcredito;
 GO

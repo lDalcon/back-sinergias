@@ -17,6 +17,7 @@ import ReporteRoute from './routes/reporte.routes';
 import SaldosDiario from './routes/saldosdiario.routes';
 import SolicitudRoute from './routes/solicitud.route';
 import UsuarioRoute from './routes/usuario.routes';
+import AumentoCapitalRoute from './routes/aumento-capital.routes';
 import path from 'path';
 
 //=========================================================
@@ -57,6 +58,7 @@ app.use('/api/reporte', ReporteRoute);
 app.use('/api/saldosdiario', SaldosDiario);
 app.use('/api/solicitud', SolicitudRoute);
 app.use('/api/usuario', UsuarioRoute);
+app.use('/api/aumento-capital', AumentoCapitalRoute)
 app.get('*', (req: Request, res: Response) => {
   res.sendFile(path.resolve(__dirname, 'public/index.html'));
 });

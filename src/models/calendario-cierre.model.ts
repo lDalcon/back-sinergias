@@ -2,6 +2,7 @@ import mssql from 'mssql';
 import dbConnection from '../config/database';
 import { CreditoSaldos } from './credito-saldos.model';
 import { ForwardSaldos } from './forward-saldos.model';
+import moment from 'moment';
 
 export class CalendarioCierre {
   ano: number = 0;
@@ -150,6 +151,12 @@ export class CalendarioCierre {
 
   async validar(transaction: mssql.Transaction, ano: number, periodo: number, proceso: string): Promise<boolean> {
     let calendario: CalendarioCierre = new CalendarioCierre({ ano, periodo });
+    calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
+    return proceso == 'registro' ? calendario.registro : calendario.proceso;
+  }
+
+  async validarFecha(transaction: mssql.Transaction, fecha: string, proceso: string): Promise<boolean> {
+    let calendario: CalendarioCierre = new CalendarioCierre({ ano: moment(fecha).year(), periodo: moment(fecha).month() + 1 });
     calendario = (await calendario.get(transaction))?.calendario || new CalendarioCierre();
     return proceso == 'registro' ? calendario.registro : calendario.proceso;
   }

@@ -1,0 +1,19 @@
+version: '3.1'
+services:
+    sqlserver:
+        container_name: db_sqlserver
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        environment:
+            ACCEPT_EULA: Y
+            MSSQL_SA_PASSWORD: '${DB_PASSWORD}'
+            MSSQL_PID: Developer
+            MSSQL_TCP_PORT: 1433
+        ports:
+            - 1433:1433
+        volumes:
+            - datasql:/var/opt/mssql
+volumes:
+    datasql:
+        driver: local
+    datamongo:
+        driver: local
