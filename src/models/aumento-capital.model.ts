@@ -28,8 +28,8 @@ export class AumentoCapital {
     this.estado = aumentoCapital?.estado || this.estado;
     this.usuariocrea = aumentoCapital?.usuariocrea || this.usuariocrea;
     this.fechacrea = aumentoCapital?.fechacrea || this.fechacrea;
-    this.seq = aumentoCapital.seq || this.seq;
-    this.seqrv = aumentoCapital.seqrv || this.seqrv;
+    this.seq = aumentoCapital?.seq || this.seq;
+    this.seqrv = aumentoCapital?.seqrv || this.seqrv;
   }
 
   async guardar(transaction?: mssql.Transaction) {
@@ -57,13 +57,40 @@ export class AumentoCapital {
         pool.close();
       }
       return { ok: true, message: 'Aumento Creado' };
-    } catch (error) {
+    } catch (error: any) {
       console.log(error);
       if (!isTrx) {
         await transaction.rollback();
         pool.close();
       }
-      return { ok: false, message: error };
+      return { ok: false, message: error['message'] };
+    }
+  }
+
+  async listar(query: any, transaction?: mssql.Transaction) {
+    let isTrx: boolean = true;
+    let pool = await dbConnection();
+    if (!transaction) {
+      transaction = new mssql.Transaction(pool);
+      isTrx = false;
+    }
+    try {
+      if (!isTrx) await transaction.begin();
+      const response = await new mssql.Request(transaction)
+        .input('idcredito', mssql.Int(), query.idcredito)
+        .execute('sc_aumento_capital_listar');
+      if (!isTrx) {
+        transaction.commit();
+        pool.close();
+      }
+      return { ok: true, data: response.recordset };
+    } catch (error: any) {
+      console.log(error);
+      if (!isTrx) {
+        await transaction.rollback();
+        pool.close();
+      }
+      return { ok: false, message: error['message'] };
     }
   }
 }
