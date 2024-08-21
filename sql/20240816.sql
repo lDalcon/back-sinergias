@@ -466,3 +466,52 @@ AS
     WHERE 
         idcredito = @idcredito
 GO
+
+
+
+ALTER   PROCEDURE [dbo].[sc_actualizar_saldos]
+	@idforward int = null,
+	@idcredito int = null
+AS
+
+	UPDATE credito SET 
+		saldo = capital - (SELECT ISNULL(SUM(valor),0) FROM detallepago WHERE credito.id = detallepago.idcredito AND detallepago.tipopago = 'Capital') +  + (SELECT ISNULL(SUM(valor),0) FROM aumentocapital WHERE credito.id = aumentocapital.idcredito),
+		saldoasignacion = capital - (SELECT ISNULL(SUM(valorasignado),0) FROM creditoforward WHERE credito.id = creditoforward.idcredito)
+	WHERE
+		id = ISNULL(@idcredito, id)
+        AND estado = 'ACTIVO'
+
+	UPDATE forward SET
+		saldo = valorusd - (SELECT ISNULL(SUM(valor),0) FROM detalleforward WHERE forward.id = detalleforward.idforward AND detalleforward.formapago = 'FORWARD' ),
+		saldoasignacion = valorusd - (SELECT ISNULL(SUM(valorasignado),0) FROM creditoforward WHERE forward.id = creditoforward.idforward)
+    WHERE
+        estado <> 'CERRADO'
+		AND id = ISNULL(@idforward, id)
+
+	UPDATE credito SET 
+		estado = 'PAGO'
+	WHERE
+		saldo = 0
+		AND estado = 'ACTIVO'
+		AND id = ISNULL(@idcredito, id)
+	
+	UPDATE credito SET 
+		estado = 'ACTIVO'
+	WHERE
+		saldo != 0
+		AND estado = 'PAGO'
+		AND id = ISNULL(@idcredito, id)
+	
+	UPDATE creditoforward SET
+		saldoasignacion = valorasignado - (SELECT ISNULL(SUM(valor),0) FROM detalleforward WHERE creditoforward.idforward = detalleforward.idforward AND detalleforward.formapago = 'FORWARD' AND creditoforward.seq = detalleforward.seqpago)
+	WHERE
+		idcredito = ISNULL(@idcredito, idcredito)
+		and idforward = ISNULL(@idforward, idforward)
+
+    UPDATE credito SET
+        saldo = 0,
+        saldoasignacion = 0
+    WHERE
+        estado = 'ANULADO'
+        AND id = ISNULL(@idcredito, id)
+GO
